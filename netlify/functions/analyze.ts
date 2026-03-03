@@ -1,8 +1,26 @@
+import type { Handler } from '@netlify/functions'
+
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export default async (req: Request) => {
+export const handler: Handler = async (event) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
+
+  // Handle preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' }
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) }
+  }
+
   try {
-    const { prompt } = await req.json()
+    const { prompt } = JSON.parse(event.body ?? '{}')
 
     let lastError: Error | null = null
 
@@ -31,21 +49,20 @@ export default async (req: Request) => {
           }),
         })
 
-        // Log raw response for debugging
-        const raw = await response.json()
-        console.log('Groq raw response:', JSON.stringify(raw, null, 2))
+        const data = await response.json()
+        console.log('Groq response status:', response.status)
 
         if (!response.ok) {
-          throw new Error(`Groq API error: ${raw.error?.message ?? JSON.stringify(raw)}`)
+          throw new Error(`Groq API error: ${data.error?.message ?? JSON.stringify(data)}`)
         }
 
-        if (!raw.choices || !raw.choices[0]) {
-          throw new Error(`Groq returned no choices: ${JSON.stringify(raw)}`)
+        if (!data.choices || !data.choices[0]) {
+          throw new Error(`Groq returned no choices: ${JSON.stringify(data)}`)
         }
 
-        const text = raw.choices[0].message?.content
+        const text = data.choices[0].message?.content
         if (!text) {
-          throw new Error(`Groq returned empty content: ${JSON.stringify(raw)}`)
+          throw new Error(`Groq returned empty content`)
         }
 
         // Strip markdown code fences if present
@@ -57,13 +74,11 @@ export default async (req: Request) => {
 
         const parsed = JSON.parse(cleaned)
 
-        return new Response(JSON.stringify({ result: parsed }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        })
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ result: parsed }),
+        }
 
       } catch (err) {
         lastError = err as Error
@@ -80,14 +95,10 @@ export default async (req: Request) => {
 
   } catch (err) {
     console.error('Final error:', (err as Error).message)
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-    })
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: (err as Error).message }),
+    }
   }
 }
-
-export const config = { path: '/api/analyze' }
