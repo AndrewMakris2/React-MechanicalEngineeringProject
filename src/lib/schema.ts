@@ -37,11 +37,12 @@ const CommonMistakeSchema = z.object({
   avoidanceTip: z.string(),
 })
 
-const DiagramElementSchema = z.discriminatedUnion('kind', [
+// More flexible diagram element that accepts any kind
+const DiagramElementSchema = z.union([
   z.object({
     kind: z.literal('body'),
     id: z.string(),
-    shape: z.enum(['block', 'point', 'beam']),
+    shape: z.enum(['block', 'point', 'beam']).default('block'),
     label: z.string(),
     x: z.number(),
     y: z.number(),
@@ -59,18 +60,22 @@ const DiagramElementSchema = z.discriminatedUnion('kind', [
     kind: z.literal('moment'),
     at: z.string(),
     label: z.string(),
-    direction: z.enum(['cw', 'ccw']),
+    direction: z.enum(['cw', 'ccw']).default('cw'),
   }),
   z.object({
     kind: z.literal('support'),
     at: z.string(),
-    supportType: z.enum(['pin', 'roller', 'fixed']),
+    supportType: z.enum(['pin', 'roller', 'fixed']).default('pin'),
   }),
+  // Catch-all for any other kind the AI returns
+  z.object({
+    kind: z.string(),
+  }).passthrough(),
 ])
 
 const DiagramSpecSchema = z.object({
-  type: z.enum(['fbd', 'none']),
-  elements: z.array(DiagramElementSchema),
+  type: z.enum(['fbd', 'none']).default('none'),
+  elements: z.array(DiagramElementSchema).default([]),
   notes: z.string().nullable().optional(),
 })
 
@@ -82,31 +87,31 @@ const UnitsParsedSchema = z.object({
 
 const UnitsIssueSchema = z.object({
   issue: z.string(),
-  severity: z.enum(['low', 'medium', 'high']),
+  severity: z.enum(['low', 'medium', 'high']).default('low'),
   tip: z.string(),
 })
 
 const ConfidenceSchema = z.object({
-  parsing: z.number().min(0).max(1),
-  domain: z.number().min(0).max(1),
-  units: z.number().min(0).max(1),
+  parsing: z.number().min(0).max(1).default(0.5),
+  domain: z.number().min(0).max(1).default(0.5),
+  units: z.number().min(0).max(1).default(0.5),
 })
 
 export const ResultSchema = z.object({
-  detectedDomain: z.enum(['statics', 'dynamics', 'thermo', 'fluids', 'unknown']),
-  problemSummary: z.string(),
-  knowns: z.array(KnownVarSchema),
-  unknowns: z.array(UnknownVarSchema),
-  assumptions: z.array(AssumptionSchema),
-  governingEquations: z.array(GoverningEquationSchema),
-  solutionOutline: z.array(SolutionStepSchema),
-  commonMistakes: z.array(CommonMistakeSchema),
-  diagramSpec: DiagramSpecSchema,
+  detectedDomain: z.enum(['statics', 'dynamics', 'thermo', 'fluids', 'unknown']).default('unknown'),
+  problemSummary: z.string().default(''),
+  knowns: z.array(KnownVarSchema).default([]),
+  unknowns: z.array(UnknownVarSchema).default([]),
+  assumptions: z.array(AssumptionSchema).default([]),
+  governingEquations: z.array(GoverningEquationSchema).default([]),
+  solutionOutline: z.array(SolutionStepSchema).default([]),
+  commonMistakes: z.array(CommonMistakeSchema).default([]),
+  diagramSpec: DiagramSpecSchema.default({ type: 'none', elements: [], notes: null }),
   units: z.object({
-    parsed: z.array(UnitsParsedSchema),
-    issues: z.array(UnitsIssueSchema),
-  }),
-  confidence: ConfidenceSchema,
+    parsed: z.array(UnitsParsedSchema).default([]),
+    issues: z.array(UnitsIssueSchema).default([]),
+  }).default({ parsed: [], issues: [] }),
+  confidence: ConfidenceSchema.default({ parsing: 0.5, domain: 0.5, units: 0.5 }),
 })
 
 export type Result = z.infer<typeof ResultSchema>
