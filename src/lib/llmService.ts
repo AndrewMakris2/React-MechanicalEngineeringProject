@@ -17,8 +17,7 @@ export function loadConfig(): LLMConfig {
     const stored = localStorage.getItem(CONFIG_KEY)
     if (stored) return JSON.parse(stored)
   } catch {}
-  return { mode: 'mock', endpointUrl: '' }
-}
+  return { mode: 'api', endpointUrl: 'https://stalwart-shortbread-fff106.netlify.app/api/analyze' }}
 
 export function saveConfig(config: LLMConfig): void {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(config))
