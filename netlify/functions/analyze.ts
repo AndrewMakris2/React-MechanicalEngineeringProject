@@ -2,6 +2,38 @@ import type { Handler } from '@netlify/functions'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+function cleanJSON(text: string): string {
+  // Remove markdown code fences
+  let cleaned = text
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim()
+
+  // Remove any text before the first {
+  const firstBrace = cleaned.indexOf('{')
+  if (firstBrace > 0) cleaned = cleaned.slice(firstBrace)
+
+  // Remove any text after the last }
+  const lastBrace = cleaned.lastIndexOf('}')
+  if (lastBrace !== -1 && lastBrace < cleaned.length - 1) {
+    cleaned = cleaned.slice(0, lastBrace + 1)
+  }
+
+  // Fix common JSON issues
+  cleaned = cleaned
+    // Fix unescaped newlines inside strings
+    .replace(/(?<=":.*?)[\n\r]+(?=.*?")/g, ' ')
+    // Fix unescaped tabs
+    .replace(/\t/g, ' ')
+    // Fix trailing commas before } or ]
+    .replace(/,\s*([}\]])/g, '$1')
+    // Fix single quotes used instead of double quotes (basic)
+    .replace(/'/g, '"')
+
+  return cleaned
+}
+
 export const handler: Handler = async (event) => {
   const headers = {
     'Content-Type': 'application/json',
@@ -10,7 +42,6 @@ export const handler: Handler = async (event) => {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   }
 
-  // Handle preflight
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' }
   }
@@ -37,7 +68,7 @@ export const handler: Handler = async (event) => {
             messages: [
               {
                 role: 'system',
-                content: 'You are an expert engineering tutor. Always respond with valid JSON only. No markdown, no code fences, no explanation outside the JSON.',
+                content: 'You are an expert engineering tutor. Always respond with valid JSON only. No markdown, no code fences, no explanation outside the JSON. Escape all special characters properly in JSON strings.',
               },
               {
                 role: 'user',
@@ -65,14 +96,15 @@ export const handler: Handler = async (event) => {
           throw new Error(`Groq returned empty content`)
         }
 
-        // Strip markdown code fences if present
-        const cleaned = text
-          .replace(/^```json\s*/i, '')
-          .replace(/^```\s*/i, '')
-          .replace(/```\s*$/i, '')
-          .trim()
+        const cleaned = cleanJSON(text)
 
-        const parsed = JSON.parse(cleaned)
+        let parsed
+        try {
+          parsed = JSON.parse(cleaned)
+        } catch (parseErr) {
+          console.error('JSON parse failed, raw text:', text.slice(0, 500))
+          throw new Error(`Failed to parse JSON response: ${(parseErr as Error).message}`)
+        }
 
         return {
           statusCode: 200,
