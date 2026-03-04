@@ -72,7 +72,10 @@ export default function App() {
                 <span className="ml-1 badge bg-blue-900 text-blue-300">{history.length}</span>
               )}
             </button>
-            <button onClick={() => setShowSettings(true)} className="btn-secondary text-xs flex items-center gap-1">
+            <button
+              onClick={() => setShowSettings(true)}
+              className="btn-secondary text-xs flex items-center gap-1"
+            >
               ⚙️ Settings
               <span className={`ml-1 badge ${config.mode === 'mock' ? 'bg-purple-900 text-purple-300' : 'bg-green-900 text-green-300'}`}>
                 {config.mode.toUpperCase()}
