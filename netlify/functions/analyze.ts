@@ -85,7 +85,7 @@ async function extractTextFromImages(base64Images: string[], mimeType: string): 
       'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'llama-3.2-11b-vision-preview',
+    model: 'llama-3.2-11b-vision-instruct',
       messages,
       temperature: 0.1,
       max_tokens: 2048,
@@ -146,7 +146,7 @@ export const handler: Handler = async (event) => {
             'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
           },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'llama-3.2-11b-vision-instruct',
             messages: [
               {
                 role: 'system',
