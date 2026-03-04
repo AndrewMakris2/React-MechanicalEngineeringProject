@@ -60,23 +60,27 @@ function repairJSON(text: string): string {
 }
 
 async function extractTextFromImages(base64Images: string[], mimeType: string): Promise<string> {
-  const messages = base64Images.map((b64, i) => ({
-    role: 'user' as const,
-    content: [
-      {
-        type: 'image_url',
-        image_url: {
-          url: `data:${mimeType};base64,${b64}`,
+  const contents: object[] = []
+
+  for (let i = 0; i < base64Images.length; i++) {
+    contents.push({
+      role: 'user',
+      content: [
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${mimeType};base64,${base64Images[i]}`,
+          },
         },
-      },
-      {
-        type: 'text',
-        text: i === 0
-          ? 'Extract all text from this engineering problem image. Return only the extracted text, nothing else.'
-          : 'Extract all text from this page. Return only the extracted text.',
-      },
-    ],
-  }))
+        {
+          type: 'text',
+          text: i === 0
+            ? 'Extract all text from this engineering problem image. Return only the extracted text, nothing else.'
+            : 'Extract all text from this page. Return only the extracted text.',
+        },
+      ],
+    })
+  }
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -85,14 +89,17 @@ async function extractTextFromImages(base64Images: string[], mimeType: string): 
       'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-    model: 'llama-3.2-11b-vision-instruct',
-      messages,
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      messages: contents,
       temperature: 0.1,
       max_tokens: 2048,
     }),
   })
 
   const data = await response.json()
+  console.log('Vision API response status:', response.status)
+  console.log('Vision API response:', JSON.stringify(data).slice(0, 300))
+
   if (!response.ok) {
     throw new Error(`Vision API error: ${data.error?.message ?? JSON.stringify(data)}`)
   }
@@ -146,7 +153,7 @@ export const handler: Handler = async (event) => {
             'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
           },
           body: JSON.stringify({
-            model: 'llama-3.2-11b-vision-instruct',
+            model: 'llama-3.3-70b-versatile',
             messages: [
               {
                 role: 'system',
