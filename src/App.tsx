@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import InputPanel from './components/InputPanel'
 import ResultPanel from './components/ResultPanel'
 import SettingsPanel from './components/SettingsPanel'
@@ -15,8 +15,10 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false)
   const [currentProblem, setCurrentProblem] = useState('')
   const [currentSubject, setCurrentSubject] = useState('auto')
+  const [injectProblem, setInjectProblem] = useState('')
   const { result, loading, error, run, clear } = useAnalysis(config)
   const { history, addEntry, removeEntry, clearHistory } = useProblemHistory()
+  const hasAddedRef = useRef<string | null>(null)
 
   async function handleAnalyze(inputs: {
     problemText: string
@@ -31,9 +33,9 @@ export default function App() {
     await run(inputs)
   }
 
-  // Save to history when result comes back
   React.useEffect(() => {
-    if (result && currentProblem) {
+    if (result && currentProblem && hasAddedRef.current !== currentProblem) {
+      hasAddedRef.current = currentProblem
       addEntry(currentProblem, currentSubject, result)
     }
   }, [result])
@@ -41,6 +43,13 @@ export default function App() {
   function handleSelectHistory(entry: { problemText: string; subject: string; result: Result }) {
     setCurrentProblem(entry.problemText)
     setCurrentSubject(entry.subject)
+    setInjectProblem(entry.problemText)
+  }
+
+  function handleTryProblem(problem: string) {
+    setInjectProblem(problem)
+    setCurrentProblem(problem)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -81,12 +90,18 @@ export default function App() {
               onClear={clear}
               onOpenSettings={() => setShowSettings(true)}
               loading={loading}
-              initialProblem={currentProblem}
+              initialProblem={injectProblem}
               initialSubject={currentSubject}
             />
           </div>
           <div className="card">
-            <ResultPanel result={result} loading={loading} error={error} />
+            <ResultPanel
+              result={result}
+              loading={loading}
+              error={error}
+              config={config}
+              onTryProblem={handleTryProblem}
+            />
           </div>
         </div>
       </div>

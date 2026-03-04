@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import type { Result } from '../lib/schema'
+import type { LLMConfig } from '../lib/llmService'
 import ConfidencePanel from './ConfidenceBar'
 import SummaryTab from './tabs/SummaryTab'
 import VariablesTab from './tabs/VariablesTab'
@@ -10,27 +11,38 @@ import MistakesTab from './tabs/MistakesTab'
 import UnitsTab from './tabs/UnitsTab'
 import DiagramTab from './tabs/DiagramTab'
 import RawJsonTab from './tabs/RawJsonTab'
+import SimilarProblems from './SimilarProblems'
+import { useSimilarProblems } from '../hooks/useSimilarProblems'
 
 const TABS = [
-  { id: 'summary',    label: '📋 Summary' },
-  { id: 'variables',  label: '📊 Variables' },
-  { id: 'assumptions',label: '💡 Assumptions' },
-  { id: 'equations',  label: '📐 Equations' },
-  { id: 'solution',   label: '🪜 Solution' },
-  { id: 'mistakes',   label: '⚠️ Mistakes' },
-  { id: 'units',      label: '📏 Units' },
-  { id: 'diagram',    label: '🖼 Diagram' },
-  { id: 'raw',        label: '{ } JSON' },
+  { id: 'summary',     label: '📋 Summary' },
+  { id: 'variables',   label: '📊 Variables' },
+  { id: 'assumptions', label: '💡 Assumptions' },
+  { id: 'equations',   label: '📐 Equations' },
+  { id: 'solution',    label: '🪜 Solution' },
+  { id: 'mistakes',    label: '⚠️ Mistakes' },
+  { id: 'units',       label: '📏 Units' },
+  { id: 'diagram',     label: '🖼 Diagram' },
+  { id: 'similar',     label: '🔄 Similar' },
+  { id: 'raw',         label: '{ } JSON' },
 ]
 
 interface Props {
   result: Result | null
   loading: boolean
   error: string | null
+  config: LLMConfig
+  onTryProblem: (problem: string) => void
 }
 
-export default function ResultPanel({ result, loading, error }: Props) {
+export default function ResultPanel({ result, loading, error, config, onTryProblem }: Props) {
   const [activeTab, setActiveTab] = useState('summary')
+  const { problems, loading: simLoading, error: simError, generate, clear } = useSimilarProblems(config)
+
+  function handleGenerate() {
+    if (!result) return
+    generate(result.problemSummary, result.detectedDomain)
+  }
 
   if (loading) {
     return (
@@ -95,6 +107,16 @@ export default function ResultPanel({ result, loading, error }: Props) {
         {activeTab === 'units'       && <UnitsTab result={result} />}
         {activeTab === 'diagram'     && <DiagramTab result={result} />}
         {activeTab === 'raw'         && <RawJsonTab result={result} />}
+        {activeTab === 'similar'     && (
+          <SimilarProblems
+            problems={problems}
+            loading={simLoading}
+            error={simError}
+            onGenerate={handleGenerate}
+            onTryProblem={onTryProblem}
+            hasResult={!!result}
+          />
+        )}
       </div>
     </div>
   )
