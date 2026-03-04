@@ -81,19 +81,17 @@ export default function ResultPanel({ result, loading, error, config, onTryProbl
     <div className="space-y-4">
       <ConfidencePanel confidence={result.confidence} />
 
-      {/* Tab Bar */}
-      <div className="overflow-x-auto">
-        <div className="flex border-b border-gray-700 gap-0.5 min-w-max">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`tab-btn ${activeTab === tab.id ? 'tab-btn-active' : 'tab-btn-inactive'}`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+     {/* Tab Bar */}
+      <div className="flex flex-wrap gap-1 border-b border-gray-700 pb-1">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`tab-btn ${activeTab === tab.id ? 'tab-btn-active' : 'tab-btn-inactive'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}
