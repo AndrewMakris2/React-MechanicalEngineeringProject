@@ -7,43 +7,38 @@ interface PromptOptions {
 }
 
 export function buildPrompt(opts: PromptOptions): string {
-  return `You are an expert engineering tutor. Analyze the following engineering problem and return ONLY valid JSON matching the exact schema below. No markdown, no explanation outside the JSON, no code fences.
+  return `You are an expert engineering tutor. Analyze the following engineering problem and return ONLY valid JSON.
 
-RULES:
-1. Return ONLY raw JSON — no text before or after.
-2. Do NOT invent numbers or values not present in the problem.
-3. ${opts.allowFullSolution ? 'You MAY include final numeric answers in solutionOutline.details.' : 'Do NOT include final numeric answers in solutionOutline.details. Show setup and method only.'}
-4. ${opts.generateDiagram && (opts.subject === 'statics' || opts.subject === 'dynamics' || opts.subject === 'auto') ? 'Generate a diagramSpec for a Free Body Diagram with appropriate elements.' : 'Set diagramSpec.type to "none" and diagramSpec.elements to [].'}
-5. ${opts.runUnitsCheck ? 'Populate units.parsed and units.issues with thorough dimensional analysis.' : 'Set units.parsed to [] and units.issues to [].'}
-6. All confidence scores must be between 0.0 and 1.0.
-7. For diagramSpec body elements: x, y are SVG coordinates (canvas 500x400); w, h are dimensions in pixels.
-8. For diagramSpec force elements: fx, fy are force vector components in display units (scale to ~60-100px max arrow length).
+CRITICAL RULES:
+1. Return ONLY raw JSON - no text before or after, no markdown, no code fences
+2. Use ONLY plain ASCII characters in all strings - no Greek letters, no special symbols
+3. Write Greek letters as words: use "theta" not "θ", "sigma" not "σ", "tau" not "τ", "delta" not "Δ", "omega" not "ω", "alpha" not "α", "beta" not "β", "mu" not "μ", "rho" not "rho", "pi" not "π"
+4. Use "^" for exponents: write "m/s^2" not "m/s²"
+5. Use plain text math: write "sum of F = 0" not "ΣF = 0"
+6. Do NOT use escaped characters like backslash-n or backslash-t inside strings
+7. Keep all string values on a single line
+8. ${opts.allowFullSolution ? 'You MAY include final numeric answers.' : 'Do NOT include final numeric answers. Show method only.'}
+9. ${opts.generateDiagram && (opts.subject === 'statics' || opts.subject === 'dynamics' || opts.subject === 'auto') ? 'Generate diagramSpec elements.' : 'Set diagramSpec.type to "none" and elements to [].'}
+10. ${opts.runUnitsCheck ? 'Populate units.parsed and units.issues.' : 'Set units.parsed and units.issues to [].'}
 
-SUBJECT HINT: ${opts.subject === 'auto' ? 'Auto-detect from content' : opts.subject}
+SUBJECT: ${opts.subject === 'auto' ? 'Auto-detect from content' : opts.subject}
 
 PROBLEM:
 ${opts.problemText}
 
 REQUIRED JSON SCHEMA:
 {
-  "detectedDomain": "statics" | "dynamics" | "thermo" | "fluids" | "unknown",
-  "problemSummary": string,
-  "knowns": [{ "name": string, "symbol": string|null, "value": string|null, "units": string|null, "notes": string|null }],
-  "unknowns": [{ "name": string, "symbol": string|null, "units": string|null, "notes": string|null }],
-  "assumptions": [{ "assumption": string, "whyItMatters": string|null }],
-  "governingEquations": [{ "equation": string, "whenToUse": string|null, "variables": string[] }],
-  "solutionOutline": [{ "step": number, "title": string, "details": string }],
-  "commonMistakes": [{ "mistake": string, "avoidanceTip": string }],
-  "diagramSpec": {
-    "type": "fbd" | "none",
-    "elements": [...],
-    "notes": string|null
-  },
-  "units": {
-    "parsed": [{ "quantity": string, "value": string|null, "units": string|null }],
-    "issues": [{ "issue": string, "severity": "low"|"medium"|"high", "tip": string }]
-  },
-  "confidence": { "parsing": number, "domain": number, "units": number }
+  "detectedDomain": "statics" or "dynamics" or "thermo" or "fluids" or "unknown",
+  "problemSummary": "plain text summary",
+  "knowns": [{ "name": "string", "symbol": "string or null", "value": "string or null", "units": "string or null", "notes": "string or null" }],
+  "unknowns": [{ "name": "string", "symbol": "string or null", "units": "string or null", "notes": "string or null" }],
+  "assumptions": [{ "assumption": "string", "whyItMatters": "string or null" }],
+  "governingEquations": [{ "equation": "plain text equation", "whenToUse": "string or null", "variables": ["string"] }],
+  "solutionOutline": [{ "step": 1, "title": "string", "details": "plain text details" }],
+  "commonMistakes": [{ "mistake": "string", "avoidanceTip": "string" }],
+  "diagramSpec": { "type": "fbd" or "none", "elements": [], "notes": null },
+  "units": { "parsed": [], "issues": [] },
+  "confidence": { "parsing": 0.9, "domain": 0.9, "units": 0.9 }
 }
 `
 }
