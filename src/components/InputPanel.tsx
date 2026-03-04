@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { EXAMPLES } from '../lib/mockData'
 import type { LLMConfig } from '../lib/llmService'
 
@@ -15,15 +15,30 @@ interface Props {
   onClear: () => void
   onOpenSettings: () => void
   loading: boolean
+  initialProblem?: string
+  initialSubject?: string
 }
 
-export default function InputPanel({ config, onAnalyze, onClear, onOpenSettings, loading }: Props) {
-  const [problemText, setProblemText] = useState('')
-  const [subject, setSubject] = useState('auto')
+export default function InputPanel({
+  config,
+  onAnalyze,
+  onClear,
+  onOpenSettings,
+  loading,
+  initialProblem = '',
+  initialSubject = 'auto',
+}: Props) {
+  const [problemText, setProblemText] = useState(initialProblem)
+  const [subject, setSubject] = useState(initialSubject)
   const [allowFullSolution, setAllowFullSolution] = useState(false)
   const [generateDiagram, setGenerateDiagram] = useState(true)
   const [runUnitsCheck, setRunUnitsCheck] = useState(true)
   const [exampleId, setExampleId] = useState<string | undefined>()
+
+  useEffect(() => {
+    if (initialProblem) setProblemText(initialProblem)
+    if (initialSubject) setSubject(initialSubject)
+  }, [initialProblem, initialSubject])
 
   function handleExample(id: string) {
     const ex = EXAMPLES.find(e => e.id === id)
@@ -46,20 +61,6 @@ export default function InputPanel({ config, onAnalyze, onClear, onOpenSettings,
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">⚙️ Engineering Problem Translator</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Paste a problem → get structured analysis</p>
-        </div>
-        <button onClick={onOpenSettings} className="btn-secondary text-xs flex items-center gap-1">
-          ⚙️ Settings
-          <span className={`ml-1 badge ${config.mode === 'mock' ? 'bg-purple-900 text-purple-300' : 'bg-green-900 text-green-300'}`}>
-            {config.mode.toUpperCase()}
-          </span>
-        </button>
-      </div>
-
       {/* Try Example */}
       <div>
         <label className="text-xs text-gray-400 block mb-1">Try an Example</label>
@@ -106,7 +107,6 @@ export default function InputPanel({ config, onAnalyze, onClear, onOpenSettings,
       {/* Toggles */}
       <div className="card space-y-3">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Options</p>
-
         <label className="toggle-label">
           <input
             type="checkbox"
@@ -116,7 +116,6 @@ export default function InputPanel({ config, onAnalyze, onClear, onOpenSettings,
           />
           <span>Allow full numeric solution</span>
         </label>
-
         <label className="toggle-label">
           <input
             type="checkbox"
@@ -126,7 +125,6 @@ export default function InputPanel({ config, onAnalyze, onClear, onOpenSettings,
           />
           <span>Generate Free Body Diagram</span>
         </label>
-
         <label className="toggle-label">
           <input
             type="checkbox"
