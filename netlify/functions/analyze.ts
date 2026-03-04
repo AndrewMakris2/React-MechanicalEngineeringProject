@@ -3,22 +3,18 @@ import type { Handler } from '@netlify/functions'
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 function repairJSON(text: string): string {
-  // Remove markdown code fences
   let cleaned = text
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
     .replace(/```\s*$/i, '')
     .trim()
 
-  // Remove any text before the first {
   const firstBrace = cleaned.indexOf('{')
   if (firstBrace > 0) cleaned = cleaned.slice(firstBrace)
 
-  // Remove any text after the last }
   const lastBrace = cleaned.lastIndexOf('}')
   if (lastBrace !== -1) cleaned = cleaned.slice(0, lastBrace + 1)
 
-  // Fix escape issues character by character inside strings
   let result = ''
   let inString = false
   let escaped = false
@@ -28,11 +24,9 @@ function repairJSON(text: string): string {
     const code = cleaned.charCodeAt(i)
 
     if (escaped) {
-      // Allow valid escape sequences
       if (['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'].includes(char)) {
         result += char
       } else {
-        // Invalid escape — just add the character without backslash
         result += char
       }
       escaped = false
@@ -52,17 +46,15 @@ function repairJSON(text: string): string {
     }
 
     if (inString) {
-      // Fix unescaped control characters inside strings
-      if (code === 0x0a) { result += '\\n'; continue }  // newline
-      if (code === 0x0d) { result += '\\r'; continue }  // carriage return
-      if (code === 0x09) { result += '\\t'; continue }  // tab
-      if (code < 0x20) { result += ' '; continue }      // other control chars
+      if (code === 0x0a) { result += ' '; continue }
+      if (code === 0x0d) { result += ' '; continue }
+      if (code === 0x09) { result += ' '; continue }
+      if (code < 0x20) { result += ' '; continue }
     }
 
     result += char
   }
 
-  // Fix trailing commas
   result = result.replace(/,\s*([}\]])/g, '$1')
 
   return result
@@ -102,7 +94,7 @@ export const handler: Handler = async (event) => {
             messages: [
               {
                 role: 'system',
-                content: 'You are an expert engineering tutor. Always respond with valid JSON only. No markdown, no code fences, no explanation outside the JSON. Never use special characters or greek letters in JSON strings. Use plain ASCII text only. Escape all backslashes properly.',
+                content: 'You are an expert engineering tutor. Always respond with valid JSON only. No markdown, no code fences, no explanation outside the JSON. Use only plain ASCII characters. No Greek letters or special symbols. No newlines or tabs inside string values.',
               },
               {
                 role: 'user',
@@ -127,7 +119,7 @@ export const handler: Handler = async (event) => {
         const text = data.choices[0].message?.content
         if (!text) throw new Error(`Groq returned empty content`)
 
-        console.log('Raw text sample:', text.slice(0, 200))
+        console.log('Raw text sample:', text.slice(0, 300))
 
         const repaired = repairJSON(text)
 
@@ -135,7 +127,7 @@ export const handler: Handler = async (event) => {
         try {
           parsed = JSON.parse(repaired)
         } catch (parseErr) {
-          console.error('Parse failed after repair. Sample:', repaired.slice(0, 300))
+          console.error('Parse failed. Sample:', repaired.slice(0, 500))
           throw new Error(`JSON parse failed: ${(parseErr as Error).message}`)
         }
 

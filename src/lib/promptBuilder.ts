@@ -37,7 +37,10 @@ REQUIRED JSON SCHEMA:
   "solutionOutline": [{ "step": 1, "title": "string", "details": "plain text details" }],
   "commonMistakes": [{ "mistake": "string", "avoidanceTip": "string" }],
   "diagramSpec": { "type": "fbd" or "none", "elements": [], "notes": null },
-  "units": { "parsed": [], "issues": [] },
+  "units": {
+    "parsed": [{ "quantity": "string", "value": "string or null", "units": "string or null" }],
+    "issues": [{ "issue": "string", "severity": "low" or "medium" or "high", "tip": "string" }]
+  },
   "confidence": { "parsing": 0.9, "domain": 0.9, "units": 0.9 }
 }
 `

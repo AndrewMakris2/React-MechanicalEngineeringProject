@@ -23,7 +23,7 @@ const AssumptionSchema = z.object({
 const GoverningEquationSchema = z.object({
   equation: z.string(),
   whenToUse: z.string().nullable().optional(),
-  variables: z.array(z.string()),
+  variables: z.array(z.string()).default([]),
 })
 
 const SolutionStepSchema = z.object({
@@ -37,7 +37,6 @@ const CommonMistakeSchema = z.object({
   avoidanceTip: z.string(),
 })
 
-// More flexible diagram element that accepts any kind
 const DiagramElementSchema = z.union([
   z.object({
     kind: z.literal('body'),
@@ -67,7 +66,6 @@ const DiagramElementSchema = z.union([
     at: z.string(),
     supportType: z.enum(['pin', 'roller', 'fixed']).default('pin'),
   }),
-  // Catch-all for any other kind the AI returns
   z.object({
     kind: z.string(),
   }).passthrough(),
@@ -77,12 +75,6 @@ const DiagramSpecSchema = z.object({
   type: z.enum(['fbd', 'none']).default('none'),
   elements: z.array(DiagramElementSchema).default([]),
   notes: z.string().nullable().optional(),
-})
-
-const UnitsParsedSchema = z.object({
-  quantity: z.string(),
-  value: z.string().nullable().optional(),
-  units: z.string().nullable().optional(),
 })
 
 const UnitsIssueSchema = z.object({
@@ -108,7 +100,17 @@ export const ResultSchema = z.object({
   commonMistakes: z.array(CommonMistakeSchema).default([]),
   diagramSpec: DiagramSpecSchema.default({ type: 'none', elements: [], notes: null }),
   units: z.object({
-    parsed: z.array(UnitsParsedSchema).default([]),
+    parsed: z.array(z.any()).default([]).transform(arr =>
+      arr.map((item: unknown) => {
+        if (typeof item !== 'object' || item === null) return { quantity: 'unknown', value: null, units: null }
+        const i = item as Record<string, unknown>
+        return {
+          quantity: String(i.quantity ?? i.name ?? 'unknown'),
+          value: i.value != null ? String(i.value) : null,
+          units: String(i.units ?? i.unit ?? ''),
+        }
+      })
+    ),
     issues: z.array(UnitsIssueSchema).default([]),
   }).default({ parsed: [], issues: [] }),
   confidence: ConfidenceSchema.default({ parsing: 0.5, domain: 0.5, units: 0.5 }),
