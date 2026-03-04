@@ -56,8 +56,48 @@ function repairJSON(text: string): string {
   }
 
   result = result.replace(/,\s*([}\]])/g, '$1')
-
   return result
+}
+
+async function extractTextFromImages(base64Images: string[], mimeType: string): Promise<string> {
+  const messages = base64Images.map((b64, i) => ({
+    role: 'user' as const,
+    content: [
+      {
+        type: 'image_url',
+        image_url: {
+          url: `data:${mimeType};base64,${b64}`,
+        },
+      },
+      {
+        type: 'text',
+        text: i === 0
+          ? 'Extract all text from this engineering problem image. Return only the extracted text, nothing else.'
+          : 'Extract all text from this page. Return only the extracted text.',
+      },
+    ],
+  }))
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.2-11b-vision-preview',
+      messages,
+      temperature: 0.1,
+      max_tokens: 2048,
+    }),
+  })
+
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(`Vision API error: ${data.error?.message ?? JSON.stringify(data)}`)
+  }
+
+  return data.choices?.[0]?.message?.content ?? ''
 }
 
 export const handler: Handler = async (event) => {
@@ -77,8 +117,24 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { prompt } = JSON.parse(event.body ?? '{}')
+    const body = JSON.parse(event.body ?? '{}')
 
+    // Handle image/PDF OCR request
+    if (body.type === 'ocr') {
+      const { base64Images, mimeType } = body
+      if (!base64Images || !Array.isArray(base64Images)) {
+        throw new Error('No images provided for OCR')
+      }
+      const extractedText = await extractTextFromImages(base64Images, mimeType ?? 'image/jpeg')
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ text: extractedText }),
+      }
+    }
+
+    // Handle normal analysis request
+    const { prompt } = body
     let lastError: Error | null = null
 
     for (let attempt = 1; attempt <= 3; attempt++) {

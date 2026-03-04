@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { EXAMPLES } from '../lib/mockData'
 import type { LLMConfig } from '../lib/llmService'
+import FileUpload from './FileUpload'
 
 interface Props {
   config: LLMConfig
@@ -34,6 +35,7 @@ export default function InputPanel({
   const [generateDiagram, setGenerateDiagram] = useState(true)
   const [runUnitsCheck, setRunUnitsCheck] = useState(true)
   const [exampleId, setExampleId] = useState<string | undefined>()
+  const [showUpload, setShowUpload] = useState(false)
 
   useEffect(() => {
     if (initialProblem) setProblemText(initialProblem)
@@ -59,8 +61,15 @@ export default function InputPanel({
     onClear()
   }
 
+  function handleExtracted(text: string) {
+    setProblemText(text)
+    setExampleId(undefined)
+    setShowUpload(false)
+  }
+
   return (
     <div className="space-y-4">
+
       {/* Try Example */}
       <div>
         <label className="text-xs text-gray-400 block mb-1">Try an Example</label>
@@ -92,17 +101,38 @@ export default function InputPanel({
         </select>
       </div>
 
-      {/* Problem Text */}
-      <div>
-        <label className="text-xs text-gray-400 block mb-1">Problem Statement</label>
-        <textarea
-          className="input-base resize-none"
-          rows={8}
-          placeholder="Paste your engineering problem here..."
-          value={problemText}
-          onChange={e => { setProblemText(e.target.value); setExampleId(undefined) }}
-        />
+      {/* Upload Toggle */}
+      <div className="flex items-center justify-between">
+        <label className="text-xs text-gray-400">Problem Statement</label>
+        <button
+          onClick={() => setShowUpload(s => !s)}
+          className={`text-xs px-2 py-1 rounded-lg border transition-colors ${
+            showUpload
+              ? 'bg-blue-600 border-blue-500 text-white'
+              : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-400'
+          }`}
+        >
+          📎 {showUpload ? 'Hide Upload' : 'Upload Photo/PDF'}
+        </button>
       </div>
+
+      {/* File Upload */}
+      {showUpload && (
+        <FileUpload
+          endpointUrl={config.endpointUrl}
+          onExtracted={handleExtracted}
+          disabled={loading}
+        />
+      )}
+
+      {/* Problem Text */}
+      <textarea
+        className="input-base resize-none"
+        rows={8}
+        placeholder="Paste your engineering problem here, or upload a photo/PDF above..."
+        value={problemText}
+        onChange={e => { setProblemText(e.target.value); setExampleId(undefined) }}
+      />
 
       {/* Toggles */}
       <div className="card space-y-3">
