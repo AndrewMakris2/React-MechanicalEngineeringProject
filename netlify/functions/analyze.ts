@@ -2,7 +2,7 @@ import type { Handler } from '@netlify/functions'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-function cleanJSON(text: string): string {
+function repairJSON(text: string): string {
   // Remove markdown code fences
   let cleaned = text
     .replace(/^```json\s*/i, '')
@@ -16,22 +16,56 @@ function cleanJSON(text: string): string {
 
   // Remove any text after the last }
   const lastBrace = cleaned.lastIndexOf('}')
-  if (lastBrace !== -1 && lastBrace < cleaned.length - 1) {
-    cleaned = cleaned.slice(0, lastBrace + 1)
+  if (lastBrace !== -1) cleaned = cleaned.slice(0, lastBrace + 1)
+
+  // Fix escape issues character by character inside strings
+  let result = ''
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i]
+    const code = cleaned.charCodeAt(i)
+
+    if (escaped) {
+      // Allow valid escape sequences
+      if (['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'].includes(char)) {
+        result += char
+      } else {
+        // Invalid escape — just add the character without backslash
+        result += char
+      }
+      escaped = false
+      continue
+    }
+
+    if (char === '\\' && inString) {
+      escaped = true
+      result += char
+      continue
+    }
+
+    if (char === '"') {
+      inString = !inString
+      result += char
+      continue
+    }
+
+    if (inString) {
+      // Fix unescaped control characters inside strings
+      if (code === 0x0a) { result += '\\n'; continue }  // newline
+      if (code === 0x0d) { result += '\\r'; continue }  // carriage return
+      if (code === 0x09) { result += '\\t'; continue }  // tab
+      if (code < 0x20) { result += ' '; continue }      // other control chars
+    }
+
+    result += char
   }
 
-  // Fix common JSON issues
-  cleaned = cleaned
-    // Fix unescaped newlines inside strings
-    .replace(/(?<=":.*?)[\n\r]+(?=.*?")/g, ' ')
-    // Fix unescaped tabs
-    .replace(/\t/g, ' ')
-    // Fix trailing commas before } or ]
-    .replace(/,\s*([}\]])/g, '$1')
-    // Fix single quotes used instead of double quotes (basic)
-    .replace(/'/g, '"')
+  // Fix trailing commas
+  result = result.replace(/,\s*([}\]])/g, '$1')
 
-  return cleaned
+  return result
 }
 
 export const handler: Handler = async (event) => {
@@ -68,42 +102,41 @@ export const handler: Handler = async (event) => {
             messages: [
               {
                 role: 'system',
-                content: 'You are an expert engineering tutor. Always respond with valid JSON only. No markdown, no code fences, no explanation outside the JSON. Escape all special characters properly in JSON strings.',
+                content: 'You are an expert engineering tutor. Always respond with valid JSON only. No markdown, no code fences, no explanation outside the JSON. Never use special characters or greek letters in JSON strings. Use plain ASCII text only. Escape all backslashes properly.',
               },
               {
                 role: 'user',
                 content: prompt,
               },
             ],
-            temperature: 0.2,
+            temperature: 0.1,
             max_tokens: 4096,
           }),
         })
 
         const data = await response.json()
-        console.log('Groq response status:', response.status)
 
         if (!response.ok) {
           throw new Error(`Groq API error: ${data.error?.message ?? JSON.stringify(data)}`)
         }
 
-        if (!data.choices || !data.choices[0]) {
-          throw new Error(`Groq returned no choices: ${JSON.stringify(data)}`)
+        if (!data.choices?.[0]) {
+          throw new Error(`Groq returned no choices`)
         }
 
         const text = data.choices[0].message?.content
-        if (!text) {
-          throw new Error(`Groq returned empty content`)
-        }
+        if (!text) throw new Error(`Groq returned empty content`)
 
-        const cleaned = cleanJSON(text)
+        console.log('Raw text sample:', text.slice(0, 200))
+
+        const repaired = repairJSON(text)
 
         let parsed
         try {
-          parsed = JSON.parse(cleaned)
+          parsed = JSON.parse(repaired)
         } catch (parseErr) {
-          console.error('JSON parse failed, raw text:', text.slice(0, 500))
-          throw new Error(`Failed to parse JSON response: ${(parseErr as Error).message}`)
+          console.error('Parse failed after repair. Sample:', repaired.slice(0, 300))
+          throw new Error(`JSON parse failed: ${(parseErr as Error).message}`)
         }
 
         return {
