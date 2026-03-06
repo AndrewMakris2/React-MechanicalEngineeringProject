@@ -3,6 +3,7 @@ import InputPanel from './components/InputPanel'
 import ResultPanel from './components/ResultPanel'
 import SettingsPanel from './components/SettingsPanel'
 import HistoryPanel from './components/HistoryPanel'
+import AIChatPanel from './components/AIChatPanel'
 import { useAnalysis } from './hooks/useAnalysis'
 import { loadConfig } from './lib/llmService'
 import type { LLMConfig } from './lib/llmService'
@@ -13,6 +14,7 @@ export default function App() {
   const [config, setConfig] = useState<LLMConfig>(loadConfig)
   const [showSettings, setShowSettings] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showTutor, setShowTutor] = useState(false)
   const [currentProblem, setCurrentProblem] = useState('')
   const [currentSubject, setCurrentSubject] = useState('auto')
   const [injectProblem, setInjectProblem] = useState('')
@@ -63,6 +65,21 @@ export default function App() {
             <p className="text-xs text-gray-400 mt-0.5">Paste a problem → get structured analysis</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* AI Tutor Button */}
+            <button
+              onClick={() => setShowTutor(s => !s)}
+              className={`text-xs flex items-center gap-1 px-3 py-2 rounded-lg border transition-colors font-medium ${
+                showTutor
+                  ? 'bg-blue-600 border-blue-500 text-white'
+                  : 'bg-gray-800 border-gray-600 text-gray-300 hover:border-gray-400'
+              }`}
+            >
+              🤖 AI Tutor
+              {result && (
+                <span className="ml-1 w-2 h-2 rounded-full bg-green-400 inline-block" />
+              )}
+            </button>
+
             <button
               onClick={() => setShowHistory(true)}
               className="btn-secondary text-xs flex items-center gap-1"
@@ -72,6 +89,7 @@ export default function App() {
                 <span className="ml-1 badge bg-blue-900 text-blue-300">{history.length}</span>
               )}
             </button>
+
             <button
               onClick={() => setShowSettings(true)}
               className="btn-secondary text-xs flex items-center gap-1"
@@ -85,7 +103,7 @@ export default function App() {
         </div>
 
         {/* Main layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className={`grid gap-6 transition-all duration-300 ${showTutor ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 lg:grid-cols-2'}`}>
           <div className="card">
             <InputPanel
               config={config}
@@ -108,6 +126,14 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* AI Tutor Panel */}
+      <AIChatPanel
+        result={result}
+        config={config}
+        isOpen={showTutor}
+        onClose={() => setShowTutor(false)}
+      />
 
       {showSettings && (
         <SettingsPanel

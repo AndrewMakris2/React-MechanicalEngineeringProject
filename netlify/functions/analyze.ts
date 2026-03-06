@@ -98,13 +98,59 @@ async function extractTextFromImages(base64Images: string[], mimeType: string): 
 
   const data = await response.json()
   console.log('Vision API response status:', response.status)
-  console.log('Vision API response:', JSON.stringify(data).slice(0, 300))
 
   if (!response.ok) {
     throw new Error(`Vision API error: ${data.error?.message ?? JSON.stringify(data)}`)
   }
 
   return data.choices?.[0]?.message?.content ?? ''
+}
+
+async function handleTutorChat(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
+  // Filter out any messages with empty or missing content
+  const cleanMessages = messages
+    .filter(m => m && m.role && m.content && String(m.content).trim().length > 0)
+    .map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: String(m.content).trim(),
+    }))
+
+  if (cleanMessages.length === 0) {
+    throw new Error('No valid messages to send')
+  }
+
+  console.log('Sending messages to Groq:', JSON.stringify(cleanMessages, null, 2))
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt && systemPrompt.trim().length > 0
+            ? systemPrompt.trim()
+            : 'You are an expert engineering tutor. Be helpful and concise.',
+        },
+        ...cleanMessages,
+      ],
+      temperature: 0.7,
+      max_tokens: 1024,
+    }),
+  })
+
+  const data = await response.json()
+  console.log('Tutor API response status:', response.status)
+
+  if (!response.ok) {
+    throw new Error(`Tutor API error: ${data.error?.message ?? JSON.stringify(data)}`)
+  }
+
+  return data.choices?.[0]?.message?.content ?? 'Sorry I could not generate a response.'
 }
 
 export const handler: Handler = async (event) => {
@@ -125,6 +171,20 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body ?? '{}')
+
+    // Handle tutor chat request
+    if (body.type === 'tutor') {
+      const { systemPrompt, messages } = body
+      if (!messages || !Array.isArray(messages)) {
+        throw new Error('No messages provided for tutor')
+      }
+      const text = await handleTutorChat(systemPrompt ?? '', messages)
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ text }),
+      }
+    }
 
     // Handle image/PDF OCR request
     if (body.type === 'ocr') {
@@ -182,15 +242,12 @@ export const handler: Handler = async (event) => {
         const text = data.choices[0].message?.content
         if (!text) throw new Error(`Groq returned empty content`)
 
-        console.log('Raw text sample:', text.slice(0, 300))
-
         const repaired = repairJSON(text)
 
         let parsed
         try {
           parsed = JSON.parse(repaired)
         } catch (parseErr) {
-          console.error('Parse failed. Sample:', repaired.slice(0, 500))
           throw new Error(`JSON parse failed: ${(parseErr as Error).message}`)
         }
 
@@ -202,7 +259,6 @@ export const handler: Handler = async (event) => {
 
       } catch (err) {
         lastError = err as Error
-        console.error(`Attempt ${attempt} failed:`, lastError.message)
         if (attempt < 3) {
           await sleep(attempt * 3000)
           continue
@@ -214,7 +270,6 @@ export const handler: Handler = async (event) => {
     throw lastError
 
   } catch (err) {
-    console.error('Final error:', (err as Error).message)
     return {
       statusCode: 500,
       headers,
