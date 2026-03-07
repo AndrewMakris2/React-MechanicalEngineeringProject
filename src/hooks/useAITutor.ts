@@ -10,26 +10,44 @@ export interface Message {
 }
 
 function buildTutorSystemPrompt(result: Result | null): string {
+  const baseInstructions = `You are an expert engineering professor and tutor at a top university.
+
+RESPONSE STYLE:
+- Write in proper sentences with correct capitalization and punctuation
+- Be precise and technical but still easy to understand
+- Use proper engineering terminology
+- Structure longer answers with clear logical flow
+- Keep responses to 3-5 sentences unless more detail is explicitly requested
+- Never use bullet points or markdown formatting
+- End with a targeted follow-up question to check understanding
+- Be encouraging but professional like a good professor would be
+
+TEACHING APPROACH:
+- Guide students to the answer rather than just giving it
+- Connect concepts to physical intuition when possible
+- Reference the specific problem context when relevant
+- If a student is wrong, gently correct them and explain why
+- Celebrate correct reasoning before adding more detail`
+
   if (!result) {
-    return `You are an expert engineering tutor. Answer engineering questions clearly and concisely. Use plain text only, no markdown formatting. Be conversational and helpful.`
+    return `${baseInstructions}
+
+You are helping a mechanical engineering student with general engineering questions. Answer clearly and precisely.`
   }
 
-  return `You are an expert engineering tutor helping a student with the following problem:
+  return `${baseInstructions}
 
-PROBLEM SUMMARY: ${result.problemSummary}
-DOMAIN: ${result.detectedDomain}
-KNOWN VARIABLES: ${result.knowns.map(k => `${k.name} = ${k.value ?? '?'} ${k.units ?? ''}`).join(', ')}
-UNKNOWN VARIABLES: ${result.unknowns.map(u => u.name).join(', ')}
-GOVERNING EQUATIONS: ${result.governingEquations.map(e => e.equation).join('; ')}
-ASSUMPTIONS: ${result.assumptions.map(a => a.assumption).join('; ')}
+You are helping a student with the following specific problem:
 
-Your job is to help the student UNDERSTAND the problem, not just give them the answer.
-- Be conversational and encouraging
-- Give hints before full explanations
-- Ask questions back to check understanding
-- Use plain text only, no markdown, no special characters
-- Keep responses concise unless more detail is requested
-- If asked for the answer directly, guide them to it step by step instead`
+PROBLEM: ${result.problemSummary}
+SUBJECT: ${result.detectedDomain}
+KNOWN VARIABLES: ${result.knowns.map(k => `${k.name} (${k.symbol ?? '?'}) = ${k.value ?? '?'} ${k.units ?? ''}`).join(', ')}
+UNKNOWN VARIABLES: ${result.unknowns.map(u => `${u.name} (${u.symbol ?? '?'})`).join(', ')}
+GOVERNING EQUATIONS: ${result.governingEquations.map(e => e.equation).join(' | ')}
+ASSUMPTIONS: ${result.assumptions.map(a => a.assumption).join(' | ')}
+SOLUTION STEPS: ${result.solutionOutline.map(s => `Step ${s.step}: ${s.title}`).join(' | ')}
+
+Always relate your answers back to this specific problem context when possible.`
 }
 
 export function useAITutor(config: LLMConfig, result: Result | null) {
@@ -55,11 +73,11 @@ export function useAITutor(config: LLMConfig, result: Result | null) {
       if (config.mode === 'mock') {
         await new Promise(r => setTimeout(r, 800))
         const mockResponses = [
-          'Great question! For this type of problem, the key is to first identify all the forces acting on the body and set up your coordinate system carefully.',
-          'Think about what happens when you resolve the forces into components. What direction does each force act in your chosen coordinate system?',
-          'Remember the fundamental principle here — for a body in equilibrium, the sum of all forces in any direction must equal zero.',
-          'Before jumping to numbers, try setting up the equation symbolically first. What does your equation look like with just variables?',
-          'Good thinking! Now check your units — make sure everything is consistent before you calculate.',
+          'Great question! For this type of problem, the key is to first identify all the forces acting on the body and set up your coordinate system carefully. What do you think should be the first step in drawing the free body diagram?',
+          'Think about what happens when you resolve the forces into components. Each force must be broken down along your chosen coordinate axes. Which direction do you think the normal force acts relative to the inclined surface?',
+          'Remember the fundamental principle here — for a body in static equilibrium, the sum of all forces in every direction must equal zero. This gives us our equilibrium equations. Can you write out what that equation looks like for the x-direction?',
+          'Before substituting numbers, always set up the equation symbolically first. This helps you catch errors and understand the relationship between variables. What variables appear in your governing equation?',
+          'Good thinking! Now verify your units carefully — every term in your equation must have the same dimensions. What units do you expect for your final answer?',
         ]
         const response: Message = {
           id: `${Date.now()}-assistant`,
@@ -75,10 +93,9 @@ export function useAITutor(config: LLMConfig, result: Result | null) {
         throw new Error('API endpoint not configured. Please set it in Settings.')
       }
 
-      // Build clean messages array — only role and content strings
       const allMessages = [...messages, userMessage]
       const cleanMessages = allMessages
-        .filter(m => m.content && m.content.trim().length > 0)
+        .filter(m => m && m.role && m.content && String(m.content).trim().length > 0)
         .map(m => ({
           role: m.role as 'user' | 'assistant',
           content: String(m.content).trim(),

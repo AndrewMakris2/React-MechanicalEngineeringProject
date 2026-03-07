@@ -17,7 +17,8 @@ export function loadConfig(): LLMConfig {
     const stored = localStorage.getItem(CONFIG_KEY)
     if (stored) return JSON.parse(stored)
   } catch {}
-  return { mode: 'api', endpointUrl: 'https://stalwart-shortbread-fff106.netlify.app/api/analyze' }}
+  return { mode: 'api', endpointUrl: 'https://stalwart-shortbread-fff106.netlify.app/api/analyze' }
+}
 
 export function saveConfig(config: LLMConfig): void {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(config))
@@ -54,7 +55,6 @@ function sanitizeData(data: unknown): unknown {
 
   const obj = data as Record<string, unknown>
 
-  // Fix diagramSpec elements — only keep elements with valid kind
   if (obj.diagramSpec && typeof obj.diagramSpec === 'object') {
     const spec = obj.diagramSpec as Record<string, unknown>
     if (Array.isArray(spec.elements)) {
@@ -66,7 +66,6 @@ function sanitizeData(data: unknown): unknown {
         })
         .map((el: unknown) => {
           const e = el as Record<string, unknown>
-          // Ensure required fields exist with defaults
           if (e.kind === 'body') {
             return {
               kind: 'body',
@@ -110,13 +109,11 @@ function sanitizeData(data: unknown): unknown {
         .filter(Boolean)
     }
 
-    // Fix type field
     if (spec.type !== 'fbd' && spec.type !== 'none') {
       spec.type = 'none'
     }
   }
 
-  // Fix confidence scores — clamp between 0 and 1
   if (obj.confidence && typeof obj.confidence === 'object') {
     const conf = obj.confidence as Record<string, unknown>
     conf.parsing = Math.min(1, Math.max(0, Number(conf.parsing) || 0.5))
@@ -124,7 +121,6 @@ function sanitizeData(data: unknown): unknown {
     conf.units = Math.min(1, Math.max(0, Number(conf.units) || 0.5))
   }
 
-  // Fix detectedDomain
   const validDomains = ['statics', 'dynamics', 'thermo', 'fluids', 'unknown']
   if (!validDomains.includes(obj.detectedDomain as string)) {
     obj.detectedDomain = 'unknown'
