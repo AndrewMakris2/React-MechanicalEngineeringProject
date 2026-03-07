@@ -9,6 +9,9 @@
   * {
     @apply box-border;
   }
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 @layer components {
@@ -42,5 +45,11 @@
   }
   .toggle-label {
     @apply flex items-center gap-2 cursor-pointer select-none text-sm text-gray-300;
+  }
+  .page-header {
+    @apply text-xl sm:text-2xl font-bold text-white;
+  }
+  .page-sub {
+    @apply text-xs text-gray-400 mt-0.5;
   }
 }

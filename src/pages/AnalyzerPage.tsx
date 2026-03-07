@@ -14,6 +14,7 @@ export default function AnalyzerPage({ config }: Props) {
   const [currentProblem, setCurrentProblem] = useState('')
   const [currentSubject, setCurrentSubject] = useState('auto')
   const [injectProblem, setInjectProblem] = useState('')
+  const [activePanel, setActivePanel] = useState<'input' | 'result'>('input')
   const { result, loading, error, run, clear } = useAnalysis(config)
   const { history, addEntry, removeEntry, clearHistory } = useProblemHistory()
   const hasAddedRef = useRef<string | null>(null)
@@ -28,6 +29,7 @@ export default function AnalyzerPage({ config }: Props) {
   }) {
     setCurrentProblem(inputs.problemText)
     setCurrentSubject(inputs.subject)
+    setActivePanel('result')
     await run(inputs)
   }
 
@@ -42,11 +44,13 @@ export default function AnalyzerPage({ config }: Props) {
     setCurrentProblem(entry.problemText)
     setCurrentSubject(entry.subject)
     setInjectProblem(entry.problemText)
+    setActivePanel('input')
   }
 
   function handleTryProblem(problem: string) {
     setInjectProblem(problem)
     setCurrentProblem(problem)
+    setActivePanel('input')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -55,8 +59,8 @@ export default function AnalyzerPage({ config }: Props) {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">🔬 Problem Analyzer</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Paste any engineering problem for a full structured analysis</p>
+          <h1 className="page-header">🔬 Problem Analyzer</h1>
+          <p className="page-sub">Paste any engineering problem for a full structured analysis</p>
         </div>
         <button
           onClick={() => setShowHistory(true)}
@@ -69,9 +73,34 @@ export default function AnalyzerPage({ config }: Props) {
         </button>
       </div>
 
+      {/* Mobile Tab Switcher */}
+      <div className="flex lg:hidden border border-gray-700 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setActivePanel('input')}
+          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+            activePanel === 'input'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-800 text-gray-400'
+          }`}
+        >
+          📋 Problem
+        </button>
+        <button
+          onClick={() => setActivePanel('result')}
+          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+            activePanel === 'result'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-800 text-gray-400'
+          }`}
+        >
+          📊 Results
+          {result && <span className="ml-1 w-2 h-2 rounded-full bg-green-400 inline-block" />}
+        </button>
+      </div>
+
       {/* Main layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+        <div className={`card ${activePanel === 'result' ? 'hidden lg:block' : ''}`}>
           <InputPanel
             config={config}
             onAnalyze={handleAnalyze}
@@ -82,7 +111,7 @@ export default function AnalyzerPage({ config }: Props) {
             initialSubject={currentSubject}
           />
         </div>
-        <div className="card">
+        <div className={`card ${activePanel === 'input' ? 'hidden lg:block' : ''}`}>
           <ResultPanel
             result={result}
             loading={loading}

@@ -59,6 +59,75 @@ function repairJSON(text: string): string {
   return result
 }
 
+// ─── QUIZ VALIDATOR ───────────────────────────────────────────────────────────
+// Extract all numbers from a string
+function extractNumbers(str: string): number[] {
+  const matches = str.match(/-?\d+\.?\d*/g)
+  return matches ? matches.map(Number) : []
+}
+
+// Check if a number appears in any of the option strings
+function numberAppearsInOptions(num: number, options: string[]): boolean {
+  return options.some(opt => {
+    const nums = extractNumbers(opt)
+    return nums.some(n => Math.abs(n - num) < 0.5)
+  })
+}
+
+// Validate and fix quiz questions
+function validateQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
+  return questions.map(q => {
+    // Make sure correctIndex is valid
+    if (q.correctIndex < 0 || q.correctIndex >= q.options.length) {
+      q.correctIndex = 0
+    }
+
+    // Extract numbers from explanation to verify correct answer
+    const explanationNums = extractNumbers(q.explanation)
+    if (explanationNums.length === 0) return q
+
+    // Get the last significant number from the explanation (usually the final answer)
+    const lastNum = explanationNums[explanationNums.length - 1]
+
+    // Get numbers from the supposedly correct option
+    const correctOptionNums = extractNumbers(q.options[q.correctIndex])
+
+    if (correctOptionNums.length === 0) return q
+
+    const correctOptionNum = correctOptionNums[0]
+
+    // Check if the correct option matches the explanation's final answer
+    const matches = Math.abs(correctOptionNum - lastNum) / (Math.abs(lastNum) + 0.001) < 0.01
+
+    if (!matches) {
+      // The correctIndex is wrong — find which option actually matches
+      for (let i = 0; i < q.options.length; i++) {
+        const optNums = extractNumbers(q.options[i])
+        if (optNums.length > 0) {
+          const ratio = Math.abs(optNums[0] - lastNum) / (Math.abs(lastNum) + 0.001)
+          if (ratio < 0.01) {
+            console.log(`Fixed correctIndex from ${q.correctIndex} to ${i} for question: ${q.question.slice(0, 50)}`)
+            q.correctIndex = i
+            break
+          }
+        }
+      }
+    }
+
+    return q
+  })
+}
+
+interface QuizQuestion {
+  question: string
+  options: string[]
+  correctIndex: number
+  explanation: string
+  subject: string
+}
+
+// ─── HANDLERS ─────────────────────────────────────────────────────────────────
+
 async function extractTextFromImages(base64Images: string[], mimeType: string): Promise<string> {
   const contents: object[] = []
 
@@ -97,8 +166,6 @@ async function extractTextFromImages(base64Images: string[], mimeType: string): 
   })
 
   const data = await response.json()
-  console.log('Vision API response status:', response.status)
-
   if (!response.ok) {
     throw new Error(`Vision API error: ${data.error?.message ?? JSON.stringify(data)}`)
   }
@@ -107,7 +174,6 @@ async function extractTextFromImages(base64Images: string[], mimeType: string): 
 }
 
 async function handleTutorChat(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
-  // Filter out any messages with empty or missing content
   const cleanMessages = messages
     .filter(m => m && m.role && m.content && String(m.content).trim().length > 0)
     .map(m => ({
@@ -118,8 +184,6 @@ async function handleTutorChat(systemPrompt: string, messages: { role: string; c
   if (cleanMessages.length === 0) {
     throw new Error('No valid messages to send')
   }
-
-  console.log('Sending messages to Groq:', JSON.stringify(cleanMessages, null, 2))
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -144,14 +208,83 @@ async function handleTutorChat(systemPrompt: string, messages: { role: string; c
   })
 
   const data = await response.json()
-  console.log('Tutor API response status:', response.status)
-
   if (!response.ok) {
     throw new Error(`Tutor API error: ${data.error?.message ?? JSON.stringify(data)}`)
   }
 
   return data.choices?.[0]?.message?.content ?? 'Sorry I could not generate a response.'
 }
+
+async function handleQuiz(prompt: string): Promise<QuizQuestion[]> {
+  // Try up to 3 times to get a valid quiz
+  let lastError: Error | null = null
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert engineering professor creating quiz questions.
+CRITICAL RULES:
+1. Always use g = 9.81 m/s² exactly - never 9.8 or 10
+2. Always use rho_water = 1000 kg/m³
+3. Calculate every answer yourself step by step before writing options
+4. The option at correctIndex MUST equal your calculated answer
+5. Show full calculation in explanation
+6. Use plain ASCII only - no Greek letters or special symbols
+7. Return only valid JSON - no markdown`,
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 4096,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(`Groq API error: ${data.error?.message ?? JSON.stringify(data)}`)
+      }
+
+      const text = data.choices?.[0]?.message?.content
+      if (!text) throw new Error('Empty response from Groq')
+
+      const repaired = repairJSON(text)
+      const parsed = JSON.parse(repaired)
+
+      if (!parsed.questions || !Array.isArray(parsed.questions)) {
+        throw new Error('Invalid quiz format returned')
+      }
+
+      // Validate and auto-fix correctIndex mismatches
+      const validated = validateQuizQuestions(parsed.questions)
+
+      console.log(`Quiz generated successfully on attempt ${attempt}`)
+      return validated
+
+    } catch (err) {
+      lastError = err as Error
+      console.error(`Quiz attempt ${attempt} failed:`, lastError.message)
+      if (attempt < 3) await sleep(2000)
+    }
+  }
+
+  throw lastError
+}
+
+// ─── MAIN HANDLER ─────────────────────────────────────────────────────────────
 
 export const handler: Handler = async (event) => {
   const headers = {
@@ -172,35 +305,33 @@ export const handler: Handler = async (event) => {
   try {
     const body = JSON.parse(event.body ?? '{}')
 
-    // Handle tutor chat request
+    // ── Tutor chat ──
     if (body.type === 'tutor') {
       const { systemPrompt, messages } = body
       if (!messages || !Array.isArray(messages)) {
         throw new Error('No messages provided for tutor')
       }
       const text = await handleTutorChat(systemPrompt ?? '', messages)
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ text }),
-      }
+      return { statusCode: 200, headers, body: JSON.stringify({ text }) }
     }
 
-    // Handle image/PDF OCR request
+    // ── OCR ──
     if (body.type === 'ocr') {
       const { base64Images, mimeType } = body
       if (!base64Images || !Array.isArray(base64Images)) {
         throw new Error('No images provided for OCR')
       }
       const extractedText = await extractTextFromImages(base64Images, mimeType ?? 'image/jpeg')
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ text: extractedText }),
-      }
+      return { statusCode: 200, headers, body: JSON.stringify({ text: extractedText }) }
     }
 
-    // Handle normal analysis request
+    // ── Quiz ──
+    if (body.type === 'quiz') {
+      const questions = await handleQuiz(body.prompt)
+      return { statusCode: 200, headers, body: JSON.stringify({ questions }) }
+    }
+
+    // ── Problem Analysis ──
     const { prompt } = body
     let lastError: Error | null = null
 
@@ -236,11 +367,11 @@ export const handler: Handler = async (event) => {
         }
 
         if (!data.choices?.[0]) {
-          throw new Error(`Groq returned no choices`)
+          throw new Error('Groq returned no choices')
         }
 
         const text = data.choices[0].message?.content
-        if (!text) throw new Error(`Groq returned empty content`)
+        if (!text) throw new Error('Groq returned empty content')
 
         const repaired = repairJSON(text)
 
@@ -259,11 +390,7 @@ export const handler: Handler = async (event) => {
 
       } catch (err) {
         lastError = err as Error
-        if (attempt < 3) {
-          await sleep(attempt * 3000)
-          continue
-        }
-        break
+        if (attempt < 3) await sleep(attempt * 3000)
       }
     }
 

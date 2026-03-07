@@ -46,10 +46,10 @@ export default function QuizPage({ config }: Props) {
       await new Promise(r => setTimeout(r, 1000))
       setQuestions([
         {
-          question: 'A block is in static equilibrium on a frictionless inclined plane. Which equation applies to forces perpendicular to the surface?',
-          options: ['N = mg sin(theta)', 'N = mg cos(theta)', 'N = mg tan(theta)', 'N = mg'],
+          question: 'A block is in static equilibrium on a frictionless inclined plane at 30 degrees. Which equation applies to forces perpendicular to the surface?',
+          options: ['N = mg sin(30)', 'N = mg cos(30)', 'N = mg tan(30)', 'N = mg'],
           correctIndex: 1,
-          explanation: 'The normal force N must balance the component of weight perpendicular to the surface, which is mg cos(theta). The component along the surface is mg sin(theta).',
+          explanation: 'The normal force N must balance the component of weight perpendicular to the surface, which is mg cos(theta). With theta = 30 degrees, N = mg cos(30). The component along the surface is mg sin(30).',
           subject: 'statics',
         },
         {
@@ -68,7 +68,7 @@ export default function QuizPage({ config }: Props) {
           question: 'In a Bernoulli flow, if velocity increases what happens to pressure?',
           options: ['Pressure increases', 'Pressure decreases', 'Pressure stays the same', 'Cannot be determined'],
           correctIndex: 1,
-          explanation: 'By Bernoulli\'s equation P + 0.5*rho*V^2 = constant, so if V increases, P must decrease to maintain the constant. This is the Venturi effect.',
+          explanation: 'By Bernoulli equation P + 0.5 * rho * V^2 = constant. If V increases, P must decrease to maintain the constant. This is the Venturi effect.',
           subject: 'fluids',
         },
         {
@@ -95,37 +95,44 @@ export default function QuizPage({ config }: Props) {
         ? `Recent topics studied: ${history.slice(0, 3).map(h => h.result.detectedDomain + ': ' + h.result.problemSummary).join('; ')}`
         : ''
 
-      const prompt = `You are an expert engineering professor. Generate ${questionCount} multiple choice quiz questions.
+      const prompt = `You are an expert engineering professor. Generate exactly ${questionCount} multiple choice questions.
 
 Subject: ${subject === 'auto' ? 'Mix of Statics, Dynamics, Thermodynamics, and Fluids' : subject}
 Difficulty: ${difficulty}
 ${contextStr}
 
-Return ONLY valid JSON in this exact format, no markdown:
+MANDATORY CONSTANTS:
+- g = 9.81 m/s² (gravity) - NEVER use 9.8 or 10
+- rho_water = 1000 kg/m³
+- rho_air = 1.225 kg/m³
+
+MANDATORY PROCESS FOR EACH QUESTION:
+Step 1: Write the question with all given values
+Step 2: Calculate the answer yourself showing every step
+Step 3: Write the correct answer as one of the 4 options
+Step 4: Set correctIndex to point to that exact answer
+Step 5: Create 3 wrong options using common mistakes like wrong g value
+Step 6: Write the full calculation in explanation field
+
+Return ONLY valid JSON no markdown:
 {
   "questions": [
     {
-      "question": "The question text here",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "question": "Full question with all given values",
+      "options": ["answer with units", "wrong option 2", "wrong option 3", "wrong option 4"],
       "correctIndex": 0,
-      "explanation": "Why this answer is correct and others are wrong",
-      "subject": "statics"
+      "explanation": "Full calculation shown step by step. P = rho * g * h = 1000 * 9.81 * 10 = 98100 Pa. Wrong answers use g=9.8 giving 98000 or g=10 giving 100000.",
+      "subject": "fluids"
     }
   ]
 }
 
-Rules:
-- correctIndex is 0-3 (index of correct answer in options array)
-- Make options plausible and educational
-- Explanation should teach the concept
-- Use plain ASCII text only, no special characters
-- Mix conceptual and calculation-based questions
-- Difficulty: easy=basic definitions, medium=application, hard=multi-step problems`
+FINAL CHECK: For every question verify the option at correctIndex matches your calculated answer exactly.`
 
       const response = await fetch(config.endpointUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ type: 'quiz', prompt }),
       })
 
       if (!response.ok) {
@@ -134,22 +141,17 @@ Rules:
       }
 
       const raw = await response.json()
-      const data = raw?.result ?? raw
 
-      let parsed: { questions: QuizQuestion[] }
-      if (typeof data === 'object' && data?.questions) {
-        parsed = data
+      let parsedQuestions: QuizQuestion[]
+      if (raw.questions && Array.isArray(raw.questions)) {
+        parsedQuestions = raw.questions
+      } else if (raw.result?.questions) {
+        parsedQuestions = raw.result.questions
       } else {
-        const text = typeof data === 'string' ? data : JSON.stringify(data)
-        const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
-        parsed = JSON.parse(cleaned)
+        throw new Error('Invalid quiz response format')
       }
 
-      if (!parsed.questions || !Array.isArray(parsed.questions)) {
-        throw new Error('Invalid response format')
-      }
-
-      setQuestions(parsed.questions)
+      setQuestions(parsedQuestions)
 
     } catch (err) {
       setError((err as Error).message)
@@ -178,16 +180,16 @@ Rules:
 
   const score = results.filter(r => r.correct).length
   const currentQuestion = questions[currentQ]
-
   const OPTION_LABELS = ['A', 'B', 'C', 'D']
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-white">📝 Quiz Mode</h1>
-        <p className="text-xs text-gray-400 mt-0.5">Test your engineering knowledge with AI-generated questions</p>
+        <h1 className="page-header">📝 Quiz Mode</h1>
+        <p className="page-sub">Test your engineering knowledge with AI-generated questions</p>
       </div>
 
+      {/* Setup Screen */}
       {questions.length === 0 && !loading && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -233,7 +235,11 @@ Rules:
                 {loading ? 'Generating Quiz...' : '🎯 Start Quiz'}
               </button>
 
-              {error && <p className="text-xs text-red-400">{error}</p>}
+              {error && (
+                <div className="bg-red-900/30 border border-red-700 rounded-xl p-3">
+                  <p className="text-xs text-red-300">🚨 {error}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -246,8 +252,8 @@ Rules:
                   { step: 1, text: 'Choose your subject, difficulty, and number of questions' },
                   { step: 2, text: 'AI generates questions tailored to your recent study topics' },
                   { step: 3, text: 'Answer each multiple choice question' },
-                  { step: 4, text: 'Get instant feedback and explanations for each answer' },
-                  { step: 5, text: 'Review your score and identify weak areas' },
+                  { step: 4, text: 'Get instant feedback and full calculation explanations' },
+                  { step: 5, text: 'Review your score and see every correct answer with working shown' },
                 ].map(s => (
                   <div key={s.step} className="flex gap-3">
                     <div className="w-6 h-6 rounded-full bg-yellow-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
@@ -288,6 +294,7 @@ Rules:
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
           </svg>
           <p className="text-gray-400 text-sm">Generating your quiz...</p>
+          <p className="text-gray-600 text-xs">Validating all answers for accuracy...</p>
         </div>
       )}
 
@@ -304,7 +311,7 @@ Rules:
                score >= questions.length * 0.6 ? 'Good effort! Keep studying!' :
                'Keep practicing — you will get there!'}
             </p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center flex-wrap">
               <button onClick={generateQuiz} className="btn-primary">Try Again</button>
               <button onClick={() => { setQuestions([]); setQuizComplete(false) }} className="btn-secondary">New Quiz</button>
             </div>
@@ -317,14 +324,14 @@ Rules:
             return (
               <div key={i} className={`card border ${result?.correct ? 'border-green-700 bg-green-900/10' : 'border-red-700 bg-red-900/10'}`}>
                 <div className="flex items-start gap-2 mb-2">
-                  <span className="text-lg">{result?.correct ? '✅' : '❌'}</span>
+                  <span className="text-lg shrink-0">{result?.correct ? '✅' : '❌'}</span>
                   <p className="text-sm text-gray-200 font-medium">{q.question}</p>
                 </div>
                 <p className="text-xs text-green-400 mb-1">✓ Correct: {q.options[q.correctIndex]}</p>
                 {!result?.correct && (
                   <p className="text-xs text-red-400 mb-1">✗ You chose: {q.options[result?.selectedIndex ?? 0]}</p>
                 )}
-                <p className="text-xs text-gray-500 mt-2 italic">{q.explanation}</p>
+                <p className="text-xs text-gray-500 mt-2 italic leading-relaxed">{q.explanation}</p>
               </div>
             )
           })}
@@ -334,6 +341,7 @@ Rules:
       {/* Active Quiz */}
       {questions.length > 0 && !quizComplete && currentQuestion && (
         <div className="max-w-2xl mx-auto space-y-4">
+
           {/* Progress */}
           <div className="flex items-center justify-between text-xs text-gray-400">
             <span>Question {currentQ + 1} of {questions.length}</span>
@@ -341,7 +349,7 @@ Rules:
           </div>
           <div className="w-full bg-gray-700 rounded-full h-1.5">
             <div
-              className="bg-yellow-500 h-1.5 rounded-full transition-all"
+              className="bg-yellow-500 h-1.5 rounded-full transition-all duration-300"
               style={{ width: `${((currentQ + 1) / questions.length) * 100}%` }}
             />
           </div>
@@ -360,14 +368,14 @@ Rules:
           {/* Options */}
           <div className="space-y-2">
             {currentQuestion.options.map((option, i) => {
-              let style = 'bg-gray-800 border-gray-600 text-gray-200 hover:border-gray-400'
+              let style = 'bg-gray-800 border-gray-600 text-gray-200 hover:border-gray-400 cursor-pointer'
               if (selectedAnswer !== null) {
                 if (i === currentQuestion.correctIndex) {
-                  style = 'bg-green-900/50 border-green-600 text-green-300'
+                  style = 'bg-green-900/50 border-green-600 text-green-300 cursor-default'
                 } else if (i === selectedAnswer && i !== currentQuestion.correctIndex) {
-                  style = 'bg-red-900/50 border-red-600 text-red-300'
+                  style = 'bg-red-900/50 border-red-600 text-red-300 cursor-default'
                 } else {
-                  style = 'bg-gray-800 border-gray-700 text-gray-500'
+                  style = 'bg-gray-800 border-gray-700 text-gray-500 cursor-default'
                 }
               }
 
@@ -389,14 +397,14 @@ Rules:
           {showExplanation && (
             <div className={`card border ${selectedAnswer === currentQuestion.correctIndex ? 'border-green-700 bg-green-900/20' : 'border-red-700 bg-red-900/20'}`}>
               <p className="text-xs font-semibold text-gray-300 mb-1">
-                {selectedAnswer === currentQuestion.correctIndex ? '✅ Correct!' : '❌ Incorrect'}
+                {selectedAnswer === currentQuestion.correctIndex ? '✅ Correct!' : `❌ Incorrect — Correct answer: ${currentQuestion.options[currentQuestion.correctIndex]}`}
               </p>
               <p className="text-xs text-gray-400 leading-relaxed">{currentQuestion.explanation}</p>
             </div>
           )}
 
           {selectedAnswer !== null && (
-            <button onClick={handleNext} className="btn-primary w-full">
+            <button onClick={handleNext} className="btn-primary w-full py-3">
               {currentQ < questions.length - 1 ? 'Next Question →' : 'See Results'}
             </button>
           )}
