@@ -9,6 +9,7 @@ import QuizPage from './pages/QuizPage'
 import UploadPage from './pages/UploadPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import type { LLMConfig } from './lib/llmService'
 
@@ -39,6 +40,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Protected routes */}
       <Route

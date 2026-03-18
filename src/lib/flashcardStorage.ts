@@ -1,4 +1,5 @@
-import { supabase } from './supabase'
+// All Supabase DB helpers use direct REST fetch (not the supabase JS client)
+// to avoid Web Lock contention on auth token refresh.
 
 export interface Flashcard {
   id: string
@@ -49,7 +50,18 @@ export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-// ── Supabase helpers ──────────────────────────────────────────────────────────
+// ── Direct REST helpers ────────────────────────────────────────────────────────
+
+function h(token: string) {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+  }
+}
+
+const url = (table: string, query = '') =>
+  `${import.meta.env.VITE_SUPABASE_URL as string}/rest/v1/${table}${query ? `?${query}` : ''}`
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToCard(row: any): Flashcard {
@@ -77,65 +89,67 @@ function rowToDeck(row: any): Deck {
   }
 }
 
-export async function fetchCardsFromDb(userId: string): Promise<Flashcard[]> {
-  const { data, error } = await supabase
-    .from('flashcards')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(rowToCard)
+export async function fetchCardsFromDb(token: string, userId: string): Promise<Flashcard[]> {
+  const res = await fetch(url('flashcards', `user_id=eq.${userId}&order=created_at.asc`), { headers: h(token) })
+  if (!res.ok) throw new Error(`fetchCards: HTTP ${res.status}`)
+  const data = await res.json()
+  return (data as unknown[]).map(rowToCard)
 }
 
-export async function upsertCardToDb(userId: string, card: Flashcard): Promise<void> {
-  const { error } = await supabase.from('flashcards').upsert({
-    id: card.id,
-    user_id: userId,
-    front: card.front,
-    back: card.back,
-    subject: card.subject,
-    deck: card.deck,
-    status: card.status,
-    source_type: card.sourceType,
-    created_at: card.createdAt,
-    last_reviewed: card.lastReviewed,
-    review_count: card.reviewCount,
+export async function upsertCardToDb(token: string, userId: string, card: Flashcard): Promise<void> {
+  const res = await fetch(url('flashcards'), {
+    method: 'POST',
+    headers: { ...h(token), Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify({
+      id: card.id,
+      user_id: userId,
+      front: card.front,
+      back: card.back,
+      subject: card.subject,
+      deck: card.deck,
+      status: card.status,
+      source_type: card.sourceType,
+      created_at: card.createdAt,
+      last_reviewed: card.lastReviewed,
+      review_count: card.reviewCount,
+    }),
   })
-  if (error) throw error
+  if (!res.ok) throw new Error(`upsertCard: HTTP ${res.status}`)
 }
 
-export async function deleteCardFromDb(id: string): Promise<void> {
-  const { error } = await supabase.from('flashcards').delete().eq('id', id)
-  if (error) throw error
+export async function deleteCardFromDb(token: string, id: string): Promise<void> {
+  const res = await fetch(url('flashcards', `id=eq.${id}`), { method: 'DELETE', headers: h(token) })
+  if (!res.ok) throw new Error(`deleteCard: HTTP ${res.status}`)
 }
 
-export async function fetchDecksFromDb(userId: string): Promise<Deck[]> {
-  const { data, error } = await supabase
-    .from('decks')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(rowToDeck)
+export async function fetchDecksFromDb(token: string, userId: string): Promise<Deck[]> {
+  const res = await fetch(url('decks', `user_id=eq.${userId}&order=created_at.asc`), { headers: h(token) })
+  if (!res.ok) throw new Error(`fetchDecks: HTTP ${res.status}`)
+  const data = await res.json()
+  return (data as unknown[]).map(rowToDeck)
 }
 
-export async function upsertDeckToDb(userId: string, deck: Deck): Promise<void> {
-  const { error } = await supabase.from('decks').upsert({
-    id: deck.id,
-    user_id: userId,
-    name: deck.name,
-    subject: deck.subject,
-    created_at: deck.createdAt,
+export async function upsertDeckToDb(token: string, userId: string, deck: Deck): Promise<void> {
+  const res = await fetch(url('decks'), {
+    method: 'POST',
+    headers: { ...h(token), Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify({
+      id: deck.id,
+      user_id: userId,
+      name: deck.name,
+      subject: deck.subject,
+      created_at: deck.createdAt,
+    }),
   })
-  if (error) throw error
+  if (!res.ok) throw new Error(`upsertDeck: HTTP ${res.status}`)
 }
 
-export async function deleteDeckFromDb(id: string): Promise<void> {
-  const { error } = await supabase.from('decks').delete().eq('id', id)
-  if (error) throw error
+export async function deleteDeckFromDb(token: string, id: string): Promise<void> {
+  const res = await fetch(url('decks', `id=eq.${id}`), { method: 'DELETE', headers: h(token) })
+  if (!res.ok) throw new Error(`deleteDeck: HTTP ${res.status}`)
 }
 
-export async function deleteDeckCardsFromDb(deckId: string): Promise<void> {
-  const { error } = await supabase.from('flashcards').delete().eq('deck', deckId)
-  if (error) throw error
+export async function deleteDeckCardsFromDb(token: string, deckId: string): Promise<void> {
+  const res = await fetch(url('flashcards', `deck=eq.${deckId}`), { method: 'DELETE', headers: h(token) })
+  if (!res.ok) throw new Error(`deleteDeckCards: HTTP ${res.status}`)
 }
