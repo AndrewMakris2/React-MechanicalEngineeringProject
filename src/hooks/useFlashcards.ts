@@ -1,17 +1,34 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { Result } from '../lib/schema'
 import type { LLMConfig } from '../lib/llmService'
 import {
   loadCards, saveCards, loadDecks, saveDecks,
-  generateId, type Flashcard, type Deck
+  generateId, type Flashcard, type Deck,
+  fetchCardsFromDb, upsertCardToDb, deleteCardFromDb,
+  fetchDecksFromDb, upsertDeckToDb, deleteDeckFromDb, deleteDeckCardsFromDb,
 } from '../lib/flashcardStorage'
 import { buildFlashcardPrompt } from '../lib/promptBuilder'
+import { useAuth } from '../contexts/AuthContext'
 
 export function useFlashcards(config: LLMConfig) {
+  const { user } = useAuth()
   const [cards, setCards] = useState<Flashcard[]>(loadCards)
   const [decks, setDecks] = useState<Deck[]>(loadDecks)
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
+
+  // Load from Supabase when user is available
+  useEffect(() => {
+    if (!user) return
+    Promise.all([fetchCardsFromDb(user.id), fetchDecksFromDb(user.id)])
+      .then(([dbCards, dbDecks]) => {
+        setCards(dbCards)
+        saveCards(dbCards)
+        setDecks(dbDecks)
+        saveDecks(dbDecks)
+      })
+      .catch(err => console.error('Failed to load flashcards from Supabase:', err.message))
+  }, [user])
 
   function updateCards(updated: Flashcard[]) {
     setCards(updated)
@@ -33,27 +50,52 @@ export function useFlashcards(config: LLMConfig) {
     }
     const updated = [...cards, newCard]
     updateCards(updated)
+    if (user) {
+      upsertCardToDb(user.id, newCard).catch(err =>
+        console.error('Failed to save card to Supabase:', err.message)
+      )
+    }
     return newCard
-  }, [cards])
+  }, [cards, user])
 
   const updateCard = useCallback((id: string, changes: Partial<Flashcard>) => {
-    const updated = cards.map(c => c.id === id ? { ...c, ...changes } : c)
-    updateCards(updated)
-  }, [cards])
+    const next = cards.map(c => c.id === id ? { ...c, ...changes } : c)
+    updateCards(next)
+    if (user) {
+      const card = next.find(c => c.id === id)
+      if (card) {
+        upsertCardToDb(user.id, card).catch(err =>
+          console.error('Failed to update card in Supabase:', err.message)
+        )
+      }
+    }
+  }, [cards, user])
 
   const deleteCard = useCallback((id: string) => {
-    const updated = cards.filter(c => c.id !== id)
-    updateCards(updated)
-  }, [cards])
+    updateCards(cards.filter(c => c.id !== id))
+    if (user) {
+      deleteCardFromDb(id).catch(err =>
+        console.error('Failed to delete card from Supabase:', err.message)
+      )
+    }
+  }, [cards, user])
 
   const markCard = useCallback((id: string, status: Flashcard['status']) => {
-    const updated = cards.map(c =>
+    const next = cards.map(c =>
       c.id === id
         ? { ...c, status, lastReviewed: Date.now(), reviewCount: c.reviewCount + 1 }
         : c
     )
-    updateCards(updated)
-  }, [cards])
+    updateCards(next)
+    if (user) {
+      const card = next.find(c => c.id === id)
+      if (card) {
+        upsertCardToDb(user.id, card).catch(err =>
+          console.error('Failed to mark card in Supabase:', err.message)
+        )
+      }
+    }
+  }, [cards, user])
 
   const addDeck = useCallback((name: string, subject: string) => {
     const newDeck: Deck = {
@@ -62,17 +104,24 @@ export function useFlashcards(config: LLMConfig) {
       subject,
       createdAt: Date.now(),
     }
-    const updated = [...decks, newDeck]
-    updateDecks(updated)
+    updateDecks([...decks, newDeck])
+    if (user) {
+      upsertDeckToDb(user.id, newDeck).catch(err =>
+        console.error('Failed to save deck to Supabase:', err.message)
+      )
+    }
     return newDeck
-  }, [decks])
+  }, [decks, user])
 
   const deleteDeck = useCallback((id: string) => {
-    const updatedDecks = decks.filter(d => d.id !== id)
-    const updatedCards = cards.filter(c => c.deck !== id)
-    updateDecks(updatedDecks)
-    updateCards(updatedCards)
-  }, [decks, cards])
+    updateDecks(decks.filter(d => d.id !== id))
+    updateCards(cards.filter(c => c.deck !== id))
+    if (user) {
+      Promise.all([deleteDeckFromDb(id), deleteDeckCardsFromDb(id)]).catch(err =>
+        console.error('Failed to delete deck from Supabase:', err.message)
+      )
+    }
+  }, [decks, cards, user])
 
   const generateFromProblem = useCallback(async (result: Result) => {
     if (config.mode === 'mock') {
@@ -123,7 +172,7 @@ export function useFlashcards(config: LLMConfig) {
       const response = await fetch(config.endpointUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'flashcards', prompt }),
+        body: JSON.stringify({ type: 'flashcards', prompt, groqApiKey: config.groqApiKey || undefined }),
       })
 
       if (!response.ok) {

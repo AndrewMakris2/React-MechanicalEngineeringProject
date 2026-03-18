@@ -7,24 +7,66 @@ import FlashcardsPage from './pages/FlashcardsPage'
 import TutorPage from './pages/TutorPage'
 import QuizPage from './pages/QuizPage'
 import UploadPage from './pages/UploadPage'
-import { loadConfig } from './lib/llmService'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import type { LLMConfig } from './lib/llmService'
-import { useState } from 'react'
 
-export default function App() {
-  const [config, setConfig] = useState<LLMConfig>(loadConfig)
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <span className="inline-block w-8 h-8 border-2 border-blue-600/30 border-t-blue-500 rounded-full animate-spin" />
+      </div>
+    )
+  }
+  if (!user) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+function AppRoutes() {
+  const { user, settings, groqApiKey } = useAuth()
+
+  const config: LLMConfig = {
+    mode: settings?.llm_mode ?? 'api',
+    endpointUrl: 'https://stalwart-shortbread-fff106.netlify.app/api/analyze',
+    groqApiKey,
+  }
 
   return (
-    <Layout config={config} onConfigChange={setConfig}>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/analyzer" element={<AnalyzerPage config={config} />} />
-        <Route path="/flashcards" element={<FlashcardsPage config={config} />} />
-        <Route path="/tutor" element={<TutorPage config={config} />} />
-        <Route path="/quiz" element={<QuizPage config={config} />} />
-        <Route path="/upload" element={<UploadPage config={config} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
+
+      {/* Protected routes */}
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <Layout config={config}>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/analyzer" element={<AnalyzerPage config={config} />} />
+                <Route path="/flashcards" element={<FlashcardsPage config={config} />} />
+                <Route path="/tutor" element={<TutorPage config={config} />} />
+                <Route path="/quiz" element={<QuizPage config={config} />} />
+                <Route path="/upload" element={<UploadPage config={config} />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   )
 }

@@ -8,20 +8,7 @@ export type LLMMode = 'mock' | 'api'
 export interface LLMConfig {
   mode: LLMMode
   endpointUrl: string
-}
-
-const CONFIG_KEY = 'eng_translator_llm_config'
-
-export function loadConfig(): LLMConfig {
-  try {
-    const stored = localStorage.getItem(CONFIG_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {}
-  return { mode: 'api', endpointUrl: 'https://stalwart-shortbread-fff106.netlify.app/api/analyze' }
-}
-
-export function saveConfig(config: LLMConfig): void {
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(config))
+  groqApiKey: string
 }
 
 export interface AnalyzeOptions {
@@ -138,7 +125,7 @@ async function analyzeApi(opts: AnalyzeOptions): Promise<Result> {
     response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: opts.prompt }),
+      body: JSON.stringify({ prompt: opts.prompt, groqApiKey: opts.config.groqApiKey || undefined }),
     })
   } catch (err) {
     throw new Error(`Network error: Could not reach endpoint "${url}". Check the URL and CORS settings.`)

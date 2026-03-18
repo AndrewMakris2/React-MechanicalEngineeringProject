@@ -69,6 +69,7 @@ export function useAITutor(config: LLMConfig, result: Result | null) {
           type: 'tutor',
           systemPrompt: buildTutorSystemPrompt(result),
           messages: cleanMessages,
+          groqApiKey: config.groqApiKey || undefined,
         }),
       })
 

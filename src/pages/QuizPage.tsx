@@ -132,7 +132,7 @@ FINAL CHECK: For every question verify the option at correctIndex matches your c
       const response = await fetch(config.endpointUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'quiz', prompt }),
+        body: JSON.stringify({ type: 'quiz', prompt, groqApiKey: config.groqApiKey || undefined }),
       })
 
       if (!response.ok) {
