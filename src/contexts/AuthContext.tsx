@@ -51,45 +51,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Failsafe: always clear loading after 6 seconds regardless of network state
-    const failsafe = setTimeout(() => setLoading(false), 6000)
+    // Failsafe: always clear loading after 8 seconds
+    const failsafe = setTimeout(() => setLoading(false), 8000)
 
-    const init = async () => {
-      try {
-        const { data } = await supabase.auth.getSession()
-        const s = data.session
-        setSession(s)
-        setUser(s?.user ?? null)
-        if (s?.user) {
-          try {
-            const st = await fetchOrCreateSettings(s.user.id)
-            setSettings(st)
-          } catch {
-            // settings fetch failed — app still works, just no saved settings
-          }
-        }
-      } catch {
-        // auth unavailable — will redirect to login
-      } finally {
-        clearTimeout(failsafe)
-        setLoading(false)
-      }
-    }
-
-    init()
-
+    // Use onAuthStateChange as sole source of truth — fires with INITIAL_SESSION
+    // on mount, avoiding lock contention with a concurrent getSession() call.
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, s) => {
       setSession(s)
       setUser(s?.user ?? null)
       if (s?.user) {
-        const st = await fetchOrCreateSettings(s.user.id)
-        setSettings(st)
+        try {
+          const st = await fetchOrCreateSettings(s.user.id)
+          setSettings(st)
+        } catch {
+          // settings fetch failed — app still works, just no saved settings
+        }
       } else {
         setSettings(null)
       }
+      clearTimeout(failsafe)
+      setLoading(false)
     })
 
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      clearTimeout(failsafe)
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   const signIn = async (email: string, password: string): Promise<string | null> => {
