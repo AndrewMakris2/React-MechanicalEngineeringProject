@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return 'Not signed in'
     const { error } = await supabase
       .from('user_settings')
-      .upsert({ user_id: user.id, groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
+      .upsert({ user_id: user.id, groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' }, { onConflict: 'user_id' })
     if (error) return error.message
     setSettings(prev => prev ? { ...prev, groq_api_key: key } : prev)
     return null
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return
     await supabase
       .from('user_settings')
-      .upsert({ user_id: user.id, groq_api_key: settings?.groq_api_key ?? '', llm_mode: mode })
+      .upsert({ user_id: user.id, groq_api_key: settings?.groq_api_key ?? '', llm_mode: mode }, { onConflict: 'user_id' })
     setSettings(prev => prev ? { ...prev, llm_mode: mode } : prev)
   }
 
