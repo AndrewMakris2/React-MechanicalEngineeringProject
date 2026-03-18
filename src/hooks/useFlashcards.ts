@@ -17,16 +17,34 @@ export function useFlashcards(config: LLMConfig) {
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
 
-  // Load from Supabase when user + session are available
+  // Load from Supabase when user + session are available.
+  // If Supabase has no data but localStorage does, migrate localStorage up (one-time).
   useEffect(() => {
     if (!user || !session) return
     const token = session.access_token
     Promise.all([fetchCardsFromDb(token, user.id), fetchDecksFromDb(token, user.id)])
-      .then(([dbCards, dbDecks]) => {
-        setCards(dbCards)
-        saveCards(dbCards)
-        setDecks(dbDecks)
-        saveDecks(dbDecks)
+      .then(async ([dbCards, dbDecks]) => {
+        const localCards = loadCards()
+        const localDecks = loadDecks()
+
+        // Migrate localStorage → Supabase if DB is empty but local has data
+        if (dbCards.length === 0 && localCards.length > 0) {
+          await Promise.all(localCards.map(c => upsertCardToDb(token, user.id, c).catch(() => null)))
+          setCards(localCards)
+          saveCards(localCards)
+        } else {
+          setCards(dbCards)
+          saveCards(dbCards)
+        }
+
+        if (dbDecks.length === 0 && localDecks.length > 0) {
+          await Promise.all(localDecks.map(d => upsertDeckToDb(token, user.id, d).catch(() => null)))
+          setDecks(localDecks)
+          saveDecks(localDecks)
+        } else {
+          setDecks(dbDecks)
+          saveDecks(dbDecks)
+        }
       })
       .catch(err => console.error('Failed to load flashcards from Supabase:', err.message))
   }, [user, session])
