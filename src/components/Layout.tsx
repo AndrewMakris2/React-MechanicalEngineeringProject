@@ -1,12 +1,12 @@
 import React, { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import type { LLMConfig } from '../lib/llmService'
-import SettingsPanel from './SettingsPanel'
+import { useAuth } from '../contexts/AuthContext'
+import AccountPanel from './AccountPanel'
 
 interface Props {
   children: React.ReactNode
   config: LLMConfig
-  onConfigChange: (c: LLMConfig) => void
 }
 
 const NAV_ITEMS = [
@@ -18,10 +18,12 @@ const NAV_ITEMS = [
   { path: '/upload',     label: 'Upload',     icon: '📎' },
 ]
 
-export default function Layout({ children, config, onConfigChange }: Props) {
-  const [showSettings, setShowSettings] = useState(false)
+export default function Layout({ children, config }: Props) {
+  const { user, settings } = useAuth()
+  const [showAccount, setShowAccount] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const location = useLocation()
+
+  const initial = (user?.email?.[0] ?? '?').toUpperCase()
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
@@ -60,14 +62,18 @@ export default function Layout({ children, config, onConfigChange }: Props) {
 
           {/* Right side */}
           <div className="flex items-center gap-2">
+            {/* Mode badge */}
+            <span className={`badge hidden sm:inline-flex text-xs ${settings?.llm_mode === 'mock' ? 'bg-purple-900 text-purple-300' : 'bg-green-900 text-green-300'}`}>
+              {(settings?.llm_mode ?? 'api').toUpperCase()}
+            </span>
+
+            {/* Account button */}
             <button
-              onClick={() => setShowSettings(true)}
-              className="btn-secondary text-xs flex items-center gap-1"
+              onClick={() => setShowAccount(true)}
+              className="w-8 h-8 rounded-full bg-blue-700 hover:bg-blue-600 flex items-center justify-center text-white text-sm font-bold transition-colors"
+              title={user?.email ?? 'Account'}
             >
-              ⚙️
-              <span className={`badge hidden sm:inline-flex ${config.mode === 'mock' ? 'bg-purple-900 text-purple-300' : 'bg-green-900 text-green-300'}`}>
-                {config.mode.toUpperCase()}
-              </span>
+              {initial}
             </button>
 
             {/* Mobile menu button */}
@@ -136,12 +142,8 @@ export default function Layout({ children, config, onConfigChange }: Props) {
         MechStudy — Engineering Study Platform · Built with Groq AI
       </footer>
 
-      {showSettings && (
-        <SettingsPanel
-          config={config}
-          onChange={onConfigChange}
-          onClose={() => setShowSettings(false)}
-        />
+      {showAccount && (
+        <AccountPanel onClose={() => setShowAccount(false)} />
       )}
     </div>
   )

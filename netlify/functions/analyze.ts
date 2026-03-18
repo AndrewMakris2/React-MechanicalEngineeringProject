@@ -125,7 +125,12 @@ interface QuizQuestion {
 
 // ─── HANDLERS ─────────────────────────────────────────────────────────────────
 
-async function extractTextFromImages(base64Images: string[], mimeType: string): Promise<string> {
+function resolveApiKey(userKey: string | undefined): string {
+  const key = (userKey ?? '').trim()
+  return key || (process.env.GROQ_API_KEY ?? '')
+}
+
+async function extractTextFromImages(base64Images: string[], mimeType: string, apiKey: string): Promise<string> {
   const contents: object[] = []
 
   for (let i = 0; i < base64Images.length; i++) {
@@ -152,7 +157,7 @@ async function extractTextFromImages(base64Images: string[], mimeType: string): 
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: 'meta-llama/llama-4-scout-17b-16e-instruct',
@@ -170,7 +175,7 @@ async function extractTextFromImages(base64Images: string[], mimeType: string): 
   return data.choices?.[0]?.message?.content ?? ''
 }
 
-async function handleTutorChat(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
+async function handleTutorChat(systemPrompt: string, messages: { role: string; content: string }[], apiKey: string): Promise<string> {
   const cleanMessages = messages
     .filter(m => m && m.role && m.content && String(m.content).trim().length > 0)
     .map(m => ({
@@ -186,7 +191,7 @@ async function handleTutorChat(systemPrompt: string, messages: { role: string; c
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
@@ -212,7 +217,7 @@ async function handleTutorChat(systemPrompt: string, messages: { role: string; c
   return data.choices?.[0]?.message?.content ?? 'Sorry I could not generate a response.'
 }
 
-async function handleQuiz(prompt: string): Promise<QuizQuestion[]> {
+async function handleQuiz(prompt: string, apiKey: string): Promise<QuizQuestion[]> {
   // Try up to 3 times to get a valid quiz
   let lastError: Error | null = null
 
@@ -222,7 +227,7 @@ async function handleQuiz(prompt: string): Promise<QuizQuestion[]> {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
@@ -283,12 +288,12 @@ CRITICAL RULES:
 
 // ─── FLASHCARD HANDLER ────────────────────────────────────────────────────────
 
-async function handleFlashcards(prompt: string): Promise<{ front: string; back: string }[]> {
+async function handleFlashcards(prompt: string, apiKey: string): Promise<{ front: string; back: string }[]> {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
@@ -356,6 +361,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body ?? '{}')
+    const apiKey = resolveApiKey(body.groqApiKey)
 
     // ── Tutor chat ──
     if (body.type === 'tutor') {
@@ -363,7 +369,7 @@ export const handler: Handler = async (event) => {
       if (!messages || !Array.isArray(messages)) {
         throw new Error('No messages provided for tutor')
       }
-      const text = await handleTutorChat(systemPrompt ?? '', messages)
+      const text = await handleTutorChat(systemPrompt ?? '', messages, apiKey)
       return { statusCode: 200, headers, body: JSON.stringify({ text }) }
     }
 
@@ -373,20 +379,20 @@ export const handler: Handler = async (event) => {
       if (!base64Images || !Array.isArray(base64Images)) {
         throw new Error('No images provided for OCR')
       }
-      const extractedText = await extractTextFromImages(base64Images, mimeType ?? 'image/jpeg')
+      const extractedText = await extractTextFromImages(base64Images, mimeType ?? 'image/jpeg', apiKey)
       return { statusCode: 200, headers, body: JSON.stringify({ text: extractedText }) }
     }
 
     // ── Quiz ──
     if (body.type === 'quiz') {
-      const questions = await handleQuiz(body.prompt)
+      const questions = await handleQuiz(body.prompt, apiKey)
       return { statusCode: 200, headers, body: JSON.stringify({ questions }) }
     }
 
     // ── Flashcards ──
     if (body.type === 'flashcards') {
       if (!body.prompt) throw new Error('No prompt provided for flashcards')
-      const cards = await handleFlashcards(body.prompt)
+      const cards = await handleFlashcards(body.prompt, apiKey)
       return { statusCode: 200, headers, body: JSON.stringify({ cards }) }
     }
 
@@ -400,7 +406,7 @@ export const handler: Handler = async (event) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+            'Authorization': `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
             model: 'llama-3.3-70b-versatile',

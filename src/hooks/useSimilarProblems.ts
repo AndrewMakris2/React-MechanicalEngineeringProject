@@ -87,7 +87,7 @@ export function useSimilarProblems(config: LLMConfig) {
       const response = await fetch(config.endpointUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, groqApiKey: config.groqApiKey || undefined }),
       })
 
       if (!response.ok) {
