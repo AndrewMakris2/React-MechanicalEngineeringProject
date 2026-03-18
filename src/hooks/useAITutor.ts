@@ -1,53 +1,14 @@
 import { useState, useCallback } from 'react'
 import type { Result } from '../lib/schema'
 import type { LLMConfig } from '../lib/llmService'
+import { generateId } from '../lib/flashcardStorage'
+import { buildTutorSystemPrompt } from '../lib/promptBuilder'
 
 export interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp: number
-}
-
-function buildTutorSystemPrompt(result: Result | null): string {
-  const baseInstructions = `You are an expert engineering professor and tutor at a top university.
-
-RESPONSE STYLE:
-- Write in proper sentences with correct capitalization and punctuation
-- Be precise and technical but still easy to understand
-- Use proper engineering terminology
-- Structure longer answers with clear logical flow
-- Keep responses to 3-5 sentences unless more detail is explicitly requested
-- Never use bullet points or markdown formatting
-- End with a targeted follow-up question to check understanding
-- Be encouraging but professional like a good professor would be
-
-TEACHING APPROACH:
-- Guide students to the answer rather than just giving it
-- Connect concepts to physical intuition when possible
-- Reference the specific problem context when relevant
-- If a student is wrong, gently correct them and explain why
-- Celebrate correct reasoning before adding more detail`
-
-  if (!result) {
-    return `${baseInstructions}
-
-You are helping a mechanical engineering student with general engineering questions. Answer clearly and precisely.`
-  }
-
-  return `${baseInstructions}
-
-You are helping a student with the following specific problem:
-
-PROBLEM: ${result.problemSummary}
-SUBJECT: ${result.detectedDomain}
-KNOWN VARIABLES: ${result.knowns.map(k => `${k.name} (${k.symbol ?? '?'}) = ${k.value ?? '?'} ${k.units ?? ''}`).join(', ')}
-UNKNOWN VARIABLES: ${result.unknowns.map(u => `${u.name} (${u.symbol ?? '?'})`).join(', ')}
-GOVERNING EQUATIONS: ${result.governingEquations.map(e => e.equation).join(' | ')}
-ASSUMPTIONS: ${result.assumptions.map(a => a.assumption).join(' | ')}
-SOLUTION STEPS: ${result.solutionOutline.map(s => `Step ${s.step}: ${s.title}`).join(' | ')}
-
-Always relate your answers back to this specific problem context when possible.`
 }
 
 export function useAITutor(config: LLMConfig, result: Result | null) {
@@ -59,7 +20,7 @@ export function useAITutor(config: LLMConfig, result: Result | null) {
     if (!content.trim()) return
 
     const userMessage: Message = {
-      id: `${Date.now()}-user`,
+      id: generateId(),
       role: 'user',
       content: content.trim(),
       timestamp: Date.now(),
@@ -80,7 +41,7 @@ export function useAITutor(config: LLMConfig, result: Result | null) {
           'Good thinking! Now verify your units carefully — every term in your equation must have the same dimensions. What units do you expect for your final answer?',
         ]
         const response: Message = {
-          id: `${Date.now()}-assistant`,
+          id: generateId(),
           role: 'assistant',
           content: mockResponses[Math.floor(Math.random() * mockResponses.length)],
           timestamp: Date.now(),
@@ -118,7 +79,7 @@ export function useAITutor(config: LLMConfig, result: Result | null) {
 
       const data = await response.json()
       const assistantMessage: Message = {
-        id: `${Date.now()}-assistant`,
+        id: generateId(),
         role: 'assistant',
         content: data.text ?? 'Sorry I could not generate a response. Please try again.',
         timestamp: Date.now(),

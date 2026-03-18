@@ -5,6 +5,7 @@ import {
   loadCards, saveCards, loadDecks, saveDecks,
   generateId, type Flashcard, type Deck
 } from '../lib/flashcardStorage'
+import { buildFlashcardPrompt } from '../lib/promptBuilder'
 
 export function useFlashcards(config: LLMConfig) {
   const [cards, setCards] = useState<Flashcard[]>(loadCards)
@@ -117,37 +118,12 @@ export function useFlashcards(config: LLMConfig) {
     setGenerateError(null)
 
     try {
-      const prompt = `You are an expert engineering professor. Based on this engineering problem analysis, generate flashcards for studying.
-
-PROBLEM: ${result.problemSummary}
-DOMAIN: ${result.detectedDomain}
-EQUATIONS: ${result.governingEquations.map(e => e.equation).join(', ')}
-ASSUMPTIONS: ${result.assumptions.map(a => a.assumption).join(', ')}
-COMMON MISTAKES: ${result.commonMistakes.map(m => m.mistake).join(', ')}
-VARIABLES: ${result.knowns.map(k => `${k.name}=${k.symbol}`).join(', ')}
-
-Generate exactly 8 flashcards. Return ONLY valid JSON in this exact format, no markdown:
-{
-  "cards": [
-    {
-      "front": "question or concept on the front of the card",
-      "back": "answer or explanation on the back of the card"
-    }
-  ]
-}
-
-Make cards for:
-- Key equations and when to use them
-- Important variable definitions
-- Common mistakes and how to avoid them
-- Key assumptions and why they matter
-- Physical concepts explained simply
-Use plain ASCII text only. No special characters or Greek letters.`
+      const prompt = buildFlashcardPrompt(result)
 
       const response = await fetch(config.endpointUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ type: 'flashcards', prompt }),
       })
 
       if (!response.ok) {
@@ -155,23 +131,13 @@ Use plain ASCII text only. No special characters or Greek letters.`
         throw new Error(err.error ?? `HTTP ${response.status}`)
       }
 
-      const raw = await response.json()
-      const data = raw?.result ?? raw
+      const data = await response.json()
 
-      let parsed: { cards: { front: string; back: string }[] }
-      if (typeof data === 'object' && data?.cards) {
-        parsed = data
-      } else {
-        const text = typeof data === 'string' ? data : JSON.stringify(data)
-        const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
-        parsed = JSON.parse(cleaned)
-      }
-
-      if (!parsed.cards || !Array.isArray(parsed.cards)) {
+      if (!data.cards || !Array.isArray(data.cards)) {
         throw new Error('Invalid response format')
       }
 
-      parsed.cards.forEach(c => {
+      data.cards.forEach((c: { front: string; back: string }) => {
         if (c.front && c.back) {
           addCard({
             front: c.front,

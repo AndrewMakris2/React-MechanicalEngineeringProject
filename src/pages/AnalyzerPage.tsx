@@ -15,7 +15,7 @@ export default function AnalyzerPage({ config }: Props) {
   const [currentSubject, setCurrentSubject] = useState('auto')
   const [injectProblem, setInjectProblem] = useState('')
   const [activePanel, setActivePanel] = useState<'input' | 'result'>('input')
-  const { result, loading, error, run, clear } = useAnalysis(config)
+  const { result, loading, error, run, clear, restore } = useAnalysis(config)
   const { history, addEntry, removeEntry, clearHistory } = useProblemHistory()
   const hasAddedRef = useRef<string | null>(null)
 
@@ -38,13 +38,15 @@ export default function AnalyzerPage({ config }: Props) {
       hasAddedRef.current = currentProblem
       addEntry(currentProblem, currentSubject, result)
     }
-  }, [result])
+  }, [result, currentProblem, currentSubject, addEntry])
 
   function handleSelectHistory(entry: { problemText: string; subject: string; result: Result }) {
+    hasAddedRef.current = entry.problemText
     setCurrentProblem(entry.problemText)
     setCurrentSubject(entry.subject)
     setInjectProblem(entry.problemText)
-    setActivePanel('input')
+    restore(entry.result)
+    setActivePanel('result')
   }
 
   function handleTryProblem(problem: string) {

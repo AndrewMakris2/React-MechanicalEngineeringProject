@@ -54,5 +54,9 @@ export function useAnalysis(config: LLMConfig) {
     setState({ result: null, loading: false, error: null })
   }, [])
 
-  return { ...state, run, clear }
+  const restore = useCallback((result: Result) => {
+    setState({ result, loading: false, error: null })
+  }, [])
+
+  return { ...state, run, clear, restore }
 }
