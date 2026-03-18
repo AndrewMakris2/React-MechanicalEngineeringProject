@@ -24,11 +24,7 @@ function repairJSON(text: string): string {
     const code = cleaned.charCodeAt(i)
 
     if (escaped) {
-      if (['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'].includes(char)) {
-        result += char
-      } else {
-        result += char
-      }
+      result += char
       escaped = false
       continue
     }
@@ -77,22 +73,24 @@ function numberAppearsInOptions(num: number, options: string[]): boolean {
 // Validate and fix quiz questions
 function validateQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
   return questions.map(q => {
+    let correctIndex = q.correctIndex
+
     // Make sure correctIndex is valid
-    if (q.correctIndex < 0 || q.correctIndex >= q.options.length) {
-      q.correctIndex = 0
+    if (correctIndex < 0 || correctIndex >= q.options.length) {
+      correctIndex = 0
     }
 
     // Extract numbers from explanation to verify correct answer
     const explanationNums = extractNumbers(q.explanation)
-    if (explanationNums.length === 0) return q
+    if (explanationNums.length === 0) return { ...q, correctIndex }
 
     // Get the last significant number from the explanation (usually the final answer)
     const lastNum = explanationNums[explanationNums.length - 1]
 
     // Get numbers from the supposedly correct option
-    const correctOptionNums = extractNumbers(q.options[q.correctIndex])
+    const correctOptionNums = extractNumbers(q.options[correctIndex])
 
-    if (correctOptionNums.length === 0) return q
+    if (correctOptionNums.length === 0) return { ...q, correctIndex }
 
     const correctOptionNum = correctOptionNums[0]
 
@@ -106,15 +104,14 @@ function validateQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
         if (optNums.length > 0) {
           const ratio = Math.abs(optNums[0] - lastNum) / (Math.abs(lastNum) + 0.001)
           if (ratio < 0.01) {
-            console.log(`Fixed correctIndex from ${q.correctIndex} to ${i} for question: ${q.question.slice(0, 50)}`)
-            q.correctIndex = i
-            break
+            console.log(`Fixed correctIndex from ${correctIndex} to ${i} for question: ${q.question.slice(0, 50)}`)
+            return { ...q, correctIndex: i }
           }
         }
       }
     }
 
-    return q
+    return { ...q, correctIndex }
   })
 }
 
@@ -284,14 +281,69 @@ CRITICAL RULES:
   throw lastError
 }
 
+// ─── FLASHCARD HANDLER ────────────────────────────────────────────────────────
+
+async function handleFlashcards(prompt: string): Promise<{ front: string; back: string }[]> {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert engineering professor creating study flashcards. Return ONLY valid JSON — no markdown, no code fences. Use plain ASCII text only.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 2048,
+    }),
+  })
+
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(`Groq API error: ${data.error?.message ?? JSON.stringify(data)}`)
+  }
+
+  const text = data.choices?.[0]?.message?.content
+  if (!text) throw new Error('Empty response from Groq')
+
+  const repaired = repairJSON(text)
+  const parsed = JSON.parse(repaired)
+
+  if (!parsed.cards || !Array.isArray(parsed.cards)) {
+    throw new Error('Invalid flashcard format returned')
+  }
+
+  return parsed.cards.filter((c: unknown) => {
+    if (typeof c !== 'object' || c === null) return false
+    const card = c as Record<string, unknown>
+    return typeof card.front === 'string' && typeof card.back === 'string'
+  })
+}
+
 // ─── MAIN HANDLER ─────────────────────────────────────────────────────────────
 
+const ALLOWED_ORIGINS = [
+  'https://stalwart-shortbread-fff106.netlify.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+]
+
 export const handler: Handler = async (event) => {
+  const requestOrigin = event.headers?.origin ?? ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(requestOrigin) ? requestOrigin : ALLOWED_ORIGINS[0]
+
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
   }
 
   if (event.httpMethod === 'OPTIONS') {
@@ -329,6 +381,13 @@ export const handler: Handler = async (event) => {
     if (body.type === 'quiz') {
       const questions = await handleQuiz(body.prompt)
       return { statusCode: 200, headers, body: JSON.stringify({ questions }) }
+    }
+
+    // ── Flashcards ──
+    if (body.type === 'flashcards') {
+      if (!body.prompt) throw new Error('No prompt provided for flashcards')
+      const cards = await handleFlashcards(body.prompt)
+      return { statusCode: 200, headers, body: JSON.stringify({ cards }) }
     }
 
     // ── Problem Analysis ──
