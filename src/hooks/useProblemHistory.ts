@@ -34,7 +34,8 @@ export function useProblemHistory() {
     }
   })
 
-  // Load from Supabase when user + session are available
+  // Load from Supabase when user + session are available.
+  // If Supabase is empty but localStorage has data, migrate it up (one-time).
   useEffect(() => {
     if (!user || !session) return
     const token = session.access_token
@@ -42,8 +43,30 @@ export function useProblemHistory() {
       headers: headers(token),
     })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then((data: unknown[]) => {
+      .then(async (data: unknown[]) => {
         if (!Array.isArray(data)) return
+
+        if (data.length === 0) {
+          // Migrate localStorage → Supabase
+          const local: HistoryEntry[] = (() => {
+            try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') } catch { return [] }
+          })()
+          if (local.length > 0) {
+            await Promise.all(local.map(e =>
+              fetch(base(), {
+                method: 'POST',
+                headers: headers(token),
+                body: JSON.stringify({
+                  id: e.id, user_id: user.id, problem_text: e.problemText,
+                  subject: e.subject, result: e.result, timestamp: e.timestamp,
+                }),
+              }).catch(() => null)
+            ))
+            setHistory(local)
+            return
+          }
+        }
+
         const entries: HistoryEntry[] = data.map(row => {
           const r = row as Record<string, unknown>
           return {
