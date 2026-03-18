@@ -93,47 +93,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  // Direct REST fetch — bypasses the Supabase JS client's Web Lock so DB writes
+  // don't hang when the auth token refresh lock is contended.
+  const dbPatch = async (token: string, filter: string, body: object) => {
+    const base = import.meta.env.VITE_SUPABASE_URL as string
+    const key  = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+    const res  = await fetch(`${base}/rest/v1/user_settings?${filter}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        apikey: key,
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json().catch(() => [])
+    return { ok: res.ok, rows: Array.isArray(json) ? json : [], status: res.status, json }
+  }
+
+  const dbInsert = async (token: string, body: object) => {
+    const base = import.meta.env.VITE_SUPABASE_URL as string
+    const key  = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+    const res  = await fetch(`${base}/rest/v1/user_settings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        apikey: key,
+      },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json().catch(() => null)
+    return { ok: res.ok, status: res.status, json }
+  }
+
   const updateApiKey = async (key: string): Promise<string | null> => {
-    if (!user) return 'Not signed in'
+    if (!user || !session) return 'Not signed in'
     try {
-      const deadline = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timed out — check Supabase tables exist and RLS policies are set')), 6000)
-      )
-      const save = async () => {
-        const { data: updated, error: updateErr } = await supabase
-          .from('user_settings')
-          .update({ groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
-          .eq('user_id', user.id)
-          .select('id')
-        if (updateErr) return updateErr.message
-        if (!updated || updated.length === 0) {
-          const { error: insertErr } = await supabase
-            .from('user_settings')
-            .insert({ user_id: user.id, groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
-          if (insertErr) return insertErr.message
-        }
-        setSettings(prev => prev ? { ...prev, groq_api_key: key } : prev)
-        return null
+      const token = session.access_token
+      const { ok, rows, json } = await dbPatch(token, `user_id=eq.${user.id}`, { groq_api_key: key })
+      if (!ok) return (json as { message?: string })?.message ?? `HTTP error`
+      if (rows.length === 0) {
+        const ins = await dbInsert(token, { user_id: user.id, groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
+        if (!ins.ok) return (ins.json as { message?: string })?.message ?? `HTTP error`
       }
-      return await Promise.race([save(), deadline])
+      setSettings(prev => prev ? { ...prev, groq_api_key: key } : prev)
+      return null
     } catch (err) {
       return (err as Error).message
     }
   }
 
   const updateMode = async (mode: 'mock' | 'api') => {
-    if (!user) return
-    const { data: updated } = await supabase
-      .from('user_settings')
-      .update({ llm_mode: mode })
-      .eq('user_id', user.id)
-      .select('id')
-    if (!updated || updated.length === 0) {
-      await supabase
-        .from('user_settings')
-        .insert({ user_id: user.id, groq_api_key: settings?.groq_api_key ?? '', llm_mode: mode })
-    }
-    setSettings(prev => prev ? { ...prev, llm_mode: mode } : prev)
+    if (!user || !session) return
+    try {
+      const token = session.access_token
+      const { rows } = await dbPatch(token, `user_id=eq.${user.id}`, { llm_mode: mode })
+      if (rows.length === 0) {
+        await dbInsert(token, { user_id: user.id, groq_api_key: settings?.groq_api_key ?? '', llm_mode: mode })
+      }
+      setSettings(prev => prev ? { ...prev, llm_mode: mode } : prev)
+    } catch { /* silent — mode toggle is non-critical */ }
   }
 
   return (
