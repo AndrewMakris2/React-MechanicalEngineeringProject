@@ -108,19 +108,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateApiKey = async (key: string): Promise<string | null> => {
     if (!user) return 'Not signed in'
-    const { error } = await supabase
+    // UPDATE existing row; if none found, INSERT
+    const { data: updated, error: updateErr } = await supabase
       .from('user_settings')
-      .upsert({ user_id: user.id, groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' }, { onConflict: 'user_id' })
-    if (error) return error.message
+      .update({ groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
+      .eq('user_id', user.id)
+      .select('id')
+    if (updateErr) return updateErr.message
+    if (!updated || updated.length === 0) {
+      const { error: insertErr } = await supabase
+        .from('user_settings')
+        .insert({ user_id: user.id, groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
+      if (insertErr) return insertErr.message
+    }
     setSettings(prev => prev ? { ...prev, groq_api_key: key } : prev)
     return null
   }
 
   const updateMode = async (mode: 'mock' | 'api') => {
     if (!user) return
-    await supabase
+    const { data: updated } = await supabase
       .from('user_settings')
-      .upsert({ user_id: user.id, groq_api_key: settings?.groq_api_key ?? '', llm_mode: mode }, { onConflict: 'user_id' })
+      .update({ llm_mode: mode })
+      .eq('user_id', user.id)
+      .select('id')
+    if (!updated || updated.length === 0) {
+      await supabase
+        .from('user_settings')
+        .insert({ user_id: user.id, groq_api_key: settings?.groq_api_key ?? '', llm_mode: mode })
+    }
     setSettings(prev => prev ? { ...prev, llm_mode: mode } : prev)
   }
 
