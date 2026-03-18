@@ -30,6 +30,14 @@ const SolutionStepSchema = z.object({
   step: z.number(),
   title: z.string(),
   details: z.string(),
+  calculation: z.string().nullable().optional(), // actual numeric substitution and result
+})
+
+const FinalAnswerSchema = z.object({
+  symbol: z.string(),
+  value: z.string(),
+  units: z.string().nullable().optional(),
+  description: z.string(),
 })
 
 const CommonMistakeSchema = z.object({
@@ -97,6 +105,7 @@ export const ResultSchema = z.object({
   assumptions: z.array(AssumptionSchema).default([]),
   governingEquations: z.array(GoverningEquationSchema).default([]),
   solutionOutline: z.array(SolutionStepSchema).default([]),
+  finalAnswer: z.array(FinalAnswerSchema).default([]),
   commonMistakes: z.array(CommonMistakeSchema).default([]),
   diagramSpec: DiagramSpecSchema.default({ type: 'none', elements: [], notes: null }),
   units: z.object({

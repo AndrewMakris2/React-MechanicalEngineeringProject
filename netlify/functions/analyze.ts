@@ -413,15 +413,15 @@ export const handler: Handler = async (event) => {
             messages: [
               {
                 role: 'system',
-                content: 'You are an expert engineering tutor. Always respond with valid JSON only. No markdown, no code fences, no explanation outside the JSON. Use only plain ASCII characters. No Greek letters or special symbols. No newlines or tabs inside string values.',
+                content: 'You are a mechanical engineering professor. You solve problems fully and numerically, showing every calculation step with actual numbers. You respond with valid JSON only — no markdown, no code fences, no text outside the JSON. Use only plain ASCII characters. No Greek letters, no special symbols, no newlines or tabs inside string values.',
               },
               {
                 role: 'user',
                 content: prompt,
               },
             ],
-            temperature: 0.1,
-            max_tokens: 4096,
+            temperature: 0.15,
+            max_tokens: 8000,
           }),
         })
 
