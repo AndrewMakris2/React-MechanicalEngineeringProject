@@ -95,21 +95,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateApiKey = async (key: string): Promise<string | null> => {
     if (!user) return 'Not signed in'
-    // UPDATE existing row; if none found, INSERT
-    const { data: updated, error: updateErr } = await supabase
-      .from('user_settings')
-      .update({ groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
-      .eq('user_id', user.id)
-      .select('id')
-    if (updateErr) return updateErr.message
-    if (!updated || updated.length === 0) {
-      const { error: insertErr } = await supabase
-        .from('user_settings')
-        .insert({ user_id: user.id, groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
-      if (insertErr) return insertErr.message
+    try {
+      const deadline = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timed out — check Supabase tables exist and RLS policies are set')), 6000)
+      )
+      const save = async () => {
+        const { data: updated, error: updateErr } = await supabase
+          .from('user_settings')
+          .update({ groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
+          .eq('user_id', user.id)
+          .select('id')
+        if (updateErr) return updateErr.message
+        if (!updated || updated.length === 0) {
+          const { error: insertErr } = await supabase
+            .from('user_settings')
+            .insert({ user_id: user.id, groq_api_key: key, llm_mode: settings?.llm_mode ?? 'api' })
+          if (insertErr) return insertErr.message
+        }
+        setSettings(prev => prev ? { ...prev, groq_api_key: key } : prev)
+        return null
+      }
+      return await Promise.race([save(), deadline])
+    } catch (err) {
+      return (err as Error).message
     }
-    setSettings(prev => prev ? { ...prev, groq_api_key: key } : prev)
-    return null
   }
 
   const updateMode = async (mode: 'mock' | 'api') => {
