@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Result } from '../lib/schema'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
 export interface HistoryEntry {
@@ -14,8 +13,18 @@ export interface HistoryEntry {
 const HISTORY_KEY = 'eng_translator_history'
 const MAX_HISTORY = 50
 
+// Use direct REST fetch to avoid Supabase JS client Web Lock contention
+function headers(token: string) {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+  }
+}
+const base = () => `${import.meta.env.VITE_SUPABASE_URL as string}/rest/v1/problem_history`
+
 export function useProblemHistory() {
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   const [history, setHistory] = useState<HistoryEntry[]>(() => {
     try {
       const stored = localStorage.getItem(HISTORY_KEY)
@@ -25,28 +34,31 @@ export function useProblemHistory() {
     }
   })
 
-  // Load from Supabase when user is available
+  // Load from Supabase when user + session are available
   useEffect(() => {
-    if (!user) return
-    supabase
-      .from('problem_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('timestamp', { ascending: false })
-      .limit(MAX_HISTORY)
-      .then(({ data, error }) => {
-        if (error || !data) return
-        const entries: HistoryEntry[] = data.map(row => ({
-          id: row.id as string,
-          timestamp: row.timestamp as number,
-          problemText: row.problem_text as string,
-          subject: row.subject as string,
-          result: row.result as Result,
-        }))
+    if (!user || !session) return
+    const token = session.access_token
+    fetch(`${base()}?user_id=eq.${user.id}&order=timestamp.desc&limit=${MAX_HISTORY}`, {
+      headers: headers(token),
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then((data: unknown[]) => {
+        if (!Array.isArray(data)) return
+        const entries: HistoryEntry[] = data.map(row => {
+          const r = row as Record<string, unknown>
+          return {
+            id: r.id as string,
+            timestamp: r.timestamp as number,
+            problemText: r.problem_text as string,
+            subject: r.subject as string,
+            result: r.result as Result,
+          }
+        })
         setHistory(entries)
         localStorage.setItem(HISTORY_KEY, JSON.stringify(entries))
       })
-  }, [user])
+      .catch(() => { /* keep localStorage data as fallback */ })
+  }, [user, session])
 
   // Keep localStorage in sync as offline fallback
   useEffect(() => {
@@ -62,37 +74,41 @@ export function useProblemHistory() {
       result,
     }
     setHistory(prev => [entry, ...prev].slice(0, MAX_HISTORY))
-    if (user) {
-      supabase.from('problem_history').insert({
-        id: entry.id,
-        user_id: user.id,
-        problem_text: entry.problemText,
-        subject: entry.subject,
-        result: entry.result,
-        timestamp: entry.timestamp,
-      }).then(({ error }) => {
-        if (error) console.error('Failed to save history to Supabase:', error.message)
-      })
+    if (user && session) {
+      fetch(base(), {
+        method: 'POST',
+        headers: headers(session.access_token),
+        body: JSON.stringify({
+          id: entry.id,
+          user_id: user.id,
+          problem_text: entry.problemText,
+          subject: entry.subject,
+          result: entry.result,
+          timestamp: entry.timestamp,
+        }),
+      }).catch(err => console.error('Failed to save history:', err))
     }
-  }, [user])
+  }, [user, session])
 
   const removeEntry = useCallback((id: string) => {
     setHistory(prev => prev.filter(e => e.id !== id))
-    if (user) {
-      supabase.from('problem_history').delete().eq('id', id).then(({ error }) => {
-        if (error) console.error('Failed to delete history from Supabase:', error.message)
-      })
+    if (user && session) {
+      fetch(`${base()}?id=eq.${id}&user_id=eq.${user.id}`, {
+        method: 'DELETE',
+        headers: headers(session.access_token),
+      }).catch(err => console.error('Failed to delete history:', err))
     }
-  }, [user])
+  }, [user, session])
 
   const clearHistory = useCallback(() => {
     setHistory([])
-    if (user) {
-      supabase.from('problem_history').delete().eq('user_id', user.id).then(({ error }) => {
-        if (error) console.error('Failed to clear history from Supabase:', error.message)
-      })
+    if (user && session) {
+      fetch(`${base()}?user_id=eq.${user.id}`, {
+        method: 'DELETE',
+        headers: headers(session.access_token),
+      }).catch(err => console.error('Failed to clear history:', err))
     }
-  }, [user])
+  }, [user, session])
 
   return { history, addEntry, removeEntry, clearHistory }
 }
