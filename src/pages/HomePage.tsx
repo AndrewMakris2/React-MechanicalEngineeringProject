@@ -9,45 +9,50 @@ const FEATURES = [
     icon: '🔬',
     title: 'Problem Analyzer',
     description: 'Paste any engineering problem and get a full structured breakdown with equations, variables, assumptions, and step-by-step guidance.',
-    color: 'from-blue-900/50 to-blue-800/30 border-blue-700',
+    hoverBorder: 'rgba(59,130,246,0.3)',
+    hoverGlow: 'rgba(59,130,246,0.08)',
     badge: 'Core Feature',
-    badgeColor: 'bg-blue-900 text-blue-300',
+    badgeStyle: { background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', color: '#93c5fd' },
   },
   {
     path: '/tutor',
     icon: '🤖',
     title: 'AI Tutor',
     description: 'Chat with an AI engineering professor. Ask follow-up questions, get hints, and understand concepts without just being given the answer.',
-    color: 'from-green-900/50 to-green-800/30 border-green-700',
+    hoverBorder: 'rgba(34,197,94,0.3)',
+    hoverGlow: 'rgba(34,197,94,0.06)',
     badge: 'Interactive',
-    badgeColor: 'bg-green-900 text-green-300',
+    badgeStyle: { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#86efac' },
   },
   {
     path: '/flashcards',
     icon: '🃏',
     title: 'Flashcards',
     description: 'Auto-generate flashcards from any analyzed problem or create your own. Study with flip animations and track your progress.',
-    color: 'from-purple-900/50 to-purple-800/30 border-purple-700',
+    hoverBorder: 'rgba(168,85,247,0.3)',
+    hoverGlow: 'rgba(168,85,247,0.06)',
     badge: 'Study Tool',
-    badgeColor: 'bg-purple-900 text-purple-300',
+    badgeStyle: { background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)', color: '#d8b4fe' },
   },
   {
     path: '/quiz',
     icon: '📝',
     title: 'Quiz Mode',
     description: 'Test your knowledge with auto-generated multiple choice questions. Track your scores and identify weak areas.',
-    color: 'from-yellow-900/50 to-yellow-800/30 border-yellow-700',
+    hoverBorder: 'rgba(234,179,8,0.3)',
+    hoverGlow: 'rgba(234,179,8,0.06)',
     badge: 'New',
-    badgeColor: 'bg-yellow-900 text-yellow-300',
+    badgeStyle: { background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)', color: '#fde047' },
   },
   {
     path: '/upload',
     icon: '📎',
     title: 'Upload & Convert',
     description: 'Upload photos or PDFs of your homework and convert them into flashcards, practice problems, or study guides instantly.',
-    color: 'from-orange-900/50 to-orange-800/30 border-orange-700',
+    hoverBorder: 'rgba(249,115,22,0.3)',
+    hoverGlow: 'rgba(249,115,22,0.06)',
     badge: 'Smart OCR',
-    badgeColor: 'bg-orange-900 text-orange-300',
+    badgeStyle: { background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: '#fdba74' },
   },
 ]
 
@@ -57,6 +62,46 @@ const SUBJECTS = [
   { icon: '🔥', name: 'Thermo', color: 'text-orange-400' },
   { icon: '💧', name: 'Fluids', color: 'text-cyan-400' },
 ]
+
+interface Feature {
+  path: string
+  icon: string
+  title: string
+  description: string
+  hoverBorder: string
+  hoverGlow: string
+  badge: string
+  badgeStyle: React.CSSProperties
+}
+
+function FeatureCard({ feature, onClick }: { feature: Feature; onClick: () => void }) {
+  const [hovered, setHovered] = React.useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="text-left rounded-2xl p-4 transition-all active:scale-[0.98] cursor-pointer"
+      style={{
+        background: hovered ? `rgba(255,255,255,0.055)` : 'rgba(255,255,255,0.035)',
+        border: `1px solid ${hovered ? feature.hoverBorder : 'rgba(255,255,255,0.08)'}`,
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: hovered
+          ? `0 8px 32px rgba(0,0,0,0.5), 0 0 40px ${feature.hoverGlow}, inset 0 1px 0 rgba(255,255,255,0.08)`
+          : '0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
+        transform: hovered ? 'translateY(-2px)' : 'none',
+      }}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-2xl sm:text-3xl">{feature.icon}</span>
+        <span className="badge text-xs" style={feature.badgeStyle}>{feature.badge}</span>
+      </div>
+      <h3 className="text-sm sm:text-base font-bold text-white mb-1 sm:mb-2">{feature.title}</h3>
+      <p className="text-xs text-gray-400 leading-relaxed">{feature.description}</p>
+    </button>
+  )
+}
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -73,17 +118,36 @@ export default function HomePage() {
     <div className="space-y-6 sm:space-y-8">
 
       {/* Hero */}
-      <div className="text-center space-y-4 py-4 sm:py-8">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <span className="text-4xl sm:text-5xl">⚙️</span>
+      <div className="text-center space-y-4 py-6 sm:py-10 relative">
+        {/* Background hero glow */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse 50% 60% at 50% 0%, rgba(59,130,246,0.1) 0%, transparent 70%)',
+        }} />
+        <div className="relative">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+            style={{
+              background: 'rgba(59,130,246,0.12)',
+              border: '1px solid rgba(59,130,246,0.25)',
+              boxShadow: '0 0 40px rgba(59,130,246,0.2)',
+            }}>
+            <span className="text-2xl">⚙️</span>
+          </div>
+          <h1 className="text-3xl sm:text-5xl font-bold text-white leading-tight">
+            Welcome to{' '}
+            <span style={{
+              background: 'linear-gradient(135deg, #60a5fa 0%, #818cf8 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
+              MechStudy
+            </span>
+          </h1>
+          <p className="text-gray-400 text-sm sm:text-lg max-w-2xl mx-auto px-2 mt-3">
+            Your AI-powered engineering study platform. Analyze problems, chat with a tutor,
+            create flashcards, and ace your exams.
+          </p>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-white">
-          Welcome to <span className="text-blue-400">MechStudy</span>
-        </h1>
-        <p className="text-gray-400 text-sm sm:text-lg max-w-2xl mx-auto px-2">
-          Your AI-powered engineering study platform. Analyze problems, chat with a tutor,
-          create flashcards, and ace your exams.
-        </p>
 
         {/* Subjects */}
         <div className="flex items-center justify-center gap-3 sm:gap-6 flex-wrap mt-2">
@@ -134,18 +198,7 @@ export default function HomePage() {
         <h2 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">Study Tools</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {FEATURES.map(feature => (
-            <button
-              key={feature.path}
-              onClick={() => navigate(feature.path)}
-              className={`card bg-gradient-to-br ${feature.color} text-left hover:scale-[1.02] active:scale-[0.98] transition-transform cursor-pointer`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <span className="text-2xl sm:text-3xl">{feature.icon}</span>
-                <span className={`badge ${feature.badgeColor} text-xs`}>{feature.badge}</span>
-              </div>
-              <h3 className="text-sm sm:text-base font-bold text-white mb-1 sm:mb-2">{feature.title}</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">{feature.description}</p>
-            </button>
+            <FeatureCard key={feature.path} feature={feature} onClick={() => navigate(feature.path)} />
           ))}
         </div>
       </div>
@@ -185,7 +238,7 @@ export default function HomePage() {
       )}
 
       {/* Quick Start Guide */}
-      <div className="card bg-gradient-to-br from-gray-900 to-gray-800">
+      <div className="card">
         <h2 className="text-base sm:text-lg font-bold text-white mb-4">🚀 Quick Start Guide</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[

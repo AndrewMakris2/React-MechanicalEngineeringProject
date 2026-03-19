@@ -4,7 +4,10 @@
 
 @layer base {
   body {
-    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+    background-color: #060c18;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -5%, rgba(59, 130, 246, 0.07), transparent);
+    @apply text-gray-100 font-sans antialiased;
   }
   * {
     @apply box-border;
@@ -12,37 +15,105 @@
   html {
     scroll-behavior: smooth;
   }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
 }
 
 @layer components {
+
+  /* ── Glass card ────────────────────────────────────── */
+  .card {
+    @apply rounded-2xl p-4;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* ── Tabs ──────────────────────────────────────────── */
   .tab-btn {
-    @apply px-3 py-2 text-xs font-medium rounded-t-md border-b-2 transition-colors whitespace-nowrap;
+    @apply px-3 py-2 text-xs font-medium rounded-t-md border-b-2 transition-all whitespace-nowrap;
   }
   .tab-btn-active {
-    @apply border-blue-500 text-blue-400 bg-gray-800;
+    @apply border-blue-500 text-blue-400;
+    background: rgba(59, 130, 246, 0.08);
   }
   .tab-btn-inactive {
-    @apply border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800;
+    @apply border-transparent text-gray-400 hover:text-gray-200;
   }
-  .card {
-    @apply bg-gray-900 border border-gray-700 rounded-xl p-4;
+  .tab-btn-inactive:hover {
+    background: rgba(255, 255, 255, 0.04);
   }
+
+  /* ── Badge ─────────────────────────────────────────── */
   .badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium;
   }
+
+  /* ── Input ─────────────────────────────────────────── */
   .input-base {
-    @apply w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100
-           placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-           transition-colors;
+    @apply w-full rounded-xl px-3 py-2.5 text-sm text-gray-100
+           placeholder-gray-500 focus:outline-none transition-all;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
   }
+  .input-base:focus {
+    background: rgba(255, 255, 255, 0.065);
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.3),
+      0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+
+  /* ── Buttons ───────────────────────────────────────── */
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg
-           transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm;
+    @apply text-white font-semibold px-4 py-2 rounded-xl text-sm
+           transition-all disabled:opacity-40 disabled:cursor-not-allowed;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow:
+      0 0 20px rgba(59, 130, 246, 0.35),
+      0 2px 8px rgba(0, 0, 0, 0.5);
   }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    box-shadow:
+      0 0 30px rgba(59, 130, 246, 0.5),
+      0 2px 10px rgba(0, 0, 0, 0.5);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
   .btn-secondary {
-    @apply bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium px-4 py-2 rounded-lg
-           transition-colors text-sm;
+    @apply text-gray-200 font-medium px-4 py-2 rounded-xl text-sm transition-all;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
   }
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  /* ── Misc ──────────────────────────────────────────── */
   .toggle-label {
     @apply flex items-center gap-2 cursor-pointer select-none text-sm text-gray-300;
   }
@@ -52,4 +123,23 @@
   .page-sub {
     @apply text-xs text-gray-400 mt-0.5;
   }
+
+  /* ── Glass utility ─────────────────────────────────── */
+  .glass {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ── Keyframes ─────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
