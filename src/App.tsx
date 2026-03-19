@@ -10,6 +10,13 @@ import UploadPage from './pages/UploadPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import FormulaSheetPage from './pages/FormulaSheetPage'
+import UnitConverterPage from './pages/UnitConverterPage'
+import MaterialPropsPage from './pages/MaterialPropsPage'
+import ConceptNotesPage from './pages/ConceptNotesPage'
+import ProgressDashboardPage from './pages/ProgressDashboardPage'
+import ProblemGeneratorPage from './pages/ProblemGeneratorPage'
+import ExamSimulatorPage from './pages/ExamSimulatorPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import type { LLMConfig } from './lib/llmService'
 
@@ -55,6 +62,13 @@ function AppRoutes() {
                 <Route path="/tutor" element={<TutorPage config={config} />} />
                 <Route path="/quiz" element={<QuizPage config={config} />} />
                 <Route path="/upload" element={<UploadPage config={config} />} />
+                <Route path="/formulas" element={<FormulaSheetPage />} />
+                <Route path="/converter" element={<UnitConverterPage />} />
+                <Route path="/materials" element={<MaterialPropsPage />} />
+                <Route path="/notes" element={<ConceptNotesPage />} />
+                <Route path="/progress" element={<ProgressDashboardPage />} />
+                <Route path="/generator" element={<ProblemGeneratorPage config={config} />} />
+                <Route path="/exam" element={<ExamSimulatorPage config={config} />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Layout>

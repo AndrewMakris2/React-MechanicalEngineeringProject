@@ -56,6 +56,79 @@ const FEATURES = [
   },
 ]
 
+const MORE_TOOLS = [
+  {
+    path: '/formulas',
+    icon: '📐',
+    title: 'Formula Sheet',
+    description: 'Searchable library of 38+ engineering formulas across Statics, Dynamics, Thermo, and Fluids with variables and usage notes.',
+    hoverBorder: 'rgba(99,102,241,0.3)',
+    hoverGlow: 'rgba(99,102,241,0.06)',
+    badge: 'Reference',
+    badgeStyle: { background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc' },
+  },
+  {
+    path: '/generator',
+    icon: '⚡',
+    title: 'Problem Generator',
+    description: 'AI generates custom practice problems on demand. Pick your subject, topic, and difficulty level.',
+    hoverBorder: 'rgba(234,179,8,0.3)',
+    hoverGlow: 'rgba(234,179,8,0.06)',
+    badge: 'AI-Powered',
+    badgeStyle: { background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)', color: '#fde047' },
+  },
+  {
+    path: '/converter',
+    icon: '🔁',
+    title: 'Unit Converter',
+    description: 'Engineering-specific unit conversions for Force, Pressure, Energy, Power, Length, Mass, Temperature, Torque, and more.',
+    hoverBorder: 'rgba(6,182,212,0.3)',
+    hoverGlow: 'rgba(6,182,212,0.06)',
+    badge: 'Utility',
+    badgeStyle: { background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)', color: '#67e8f9' },
+  },
+  {
+    path: '/exam',
+    icon: '🎓',
+    title: 'Exam Simulator',
+    description: 'Take a timed AI-generated practice exam with self-grading. Simulate real exam pressure and track your performance.',
+    hoverBorder: 'rgba(239,68,68,0.3)',
+    hoverGlow: 'rgba(239,68,68,0.06)',
+    badge: 'Timed',
+    badgeStyle: { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#fca5a5' },
+  },
+  {
+    path: '/notes',
+    icon: '📓',
+    title: 'Concept Notes',
+    description: 'Your personal engineering notebook. Create, search, and organize study notes by subject with tags.',
+    hoverBorder: 'rgba(34,197,94,0.3)',
+    hoverGlow: 'rgba(34,197,94,0.06)',
+    badge: 'Personal',
+    badgeStyle: { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#86efac' },
+  },
+  {
+    path: '/progress',
+    icon: '📊',
+    title: 'Progress Dashboard',
+    description: 'Visualize your learning with charts. Track problems solved, flashcard mastery rates, and study activity over time.',
+    hoverBorder: 'rgba(168,85,247,0.3)',
+    hoverGlow: 'rgba(168,85,247,0.06)',
+    badge: 'Analytics',
+    badgeStyle: { background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)', color: '#d8b4fe' },
+  },
+  {
+    path: '/materials',
+    icon: '🔩',
+    title: 'Material Properties',
+    description: 'Quick-reference table for 18 common engineering materials — steel, aluminum, titanium, copper, polymers, and more.',
+    hoverBorder: 'rgba(148,163,184,0.3)',
+    hoverGlow: 'rgba(148,163,184,0.06)',
+    badge: 'Reference',
+    badgeStyle: { background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.2)', color: '#cbd5e1' },
+  },
+]
+
 const SUBJECTS = [
   { icon: '⚖️', name: 'Statics', color: 'text-blue-400' },
   { icon: '🚀', name: 'Dynamics', color: 'text-purple-400' },
@@ -198,6 +271,16 @@ export default function HomePage() {
         <h2 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">Study Tools</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {FEATURES.map(feature => (
+            <FeatureCard key={feature.path} feature={feature} onClick={() => navigate(feature.path)} />
+          ))}
+        </div>
+      </div>
+
+      {/* More Tools */}
+      <div>
+        <h2 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">More Tools</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {MORE_TOOLS.map(feature => (
             <FeatureCard key={feature.path} feature={feature} onClick={() => navigate(feature.path)} />
           ))}
         </div>
