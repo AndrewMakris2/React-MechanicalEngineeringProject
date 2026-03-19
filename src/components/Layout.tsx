@@ -26,17 +26,42 @@ export default function Layout({ children, config }: Props) {
   const initial = (user?.email?.[0] ?? '?').toUpperCase()
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
+    <div className="min-h-screen flex flex-col">
 
-      {/* Top Nav */}
-      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-20">
+      {/* Top Nav — frosted glass */}
+      <header
+        className="sticky top-0 z-20 border-b"
+        style={{
+          background: 'rgba(6, 12, 24, 0.85)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          borderColor: 'rgba(255,255,255,0.07)',
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
 
           {/* Logo */}
-          <NavLink to="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-xl">⚙️</span>
-            <span className="text-lg font-bold text-white">MechStudy</span>
-            <span className="badge bg-blue-900 text-blue-300 text-xs hidden sm:inline-flex">Beta</span>
+          <NavLink to="/" className="flex items-center gap-2.5 shrink-0 group">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all group-hover:scale-110"
+              style={{
+                background: 'rgba(59,130,246,0.15)',
+                border: '1px solid rgba(59,130,246,0.3)',
+              }}
+            >
+              <span className="text-base leading-none">⚙️</span>
+            </div>
+            <span className="text-base font-bold text-white tracking-tight">MechStudy</span>
+            <span
+              className="badge text-xs hidden sm:inline-flex"
+              style={{
+                background: 'rgba(59,130,246,0.1)',
+                border: '1px solid rgba(59,130,246,0.2)',
+                color: '#93c5fd',
+              }}
+            >
+              Beta
+            </span>
           </NavLink>
 
           {/* Desktop Nav */}
@@ -47,14 +72,18 @@ export default function Layout({ children, config }: Props) {
                 to={item.path}
                 end={item.path === '/'}
                 className={({ isActive }) =>
-                  `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                  `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    isActive ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'
                   }`
                 }
+                style={({ isActive }) => isActive ? {
+                  background: 'rgba(59,130,246,0.12)',
+                  border: '1px solid rgba(59,130,246,0.22)',
+                } : {
+                  border: '1px solid transparent',
+                }}
               >
-                <span>{item.icon}</span>
+                <span className="text-sm">{item.icon}</span>
                 <span>{item.label}</span>
               </NavLink>
             ))}
@@ -63,14 +92,27 @@ export default function Layout({ children, config }: Props) {
           {/* Right side */}
           <div className="flex items-center gap-2">
             {/* Mode badge */}
-            <span className={`badge hidden sm:inline-flex text-xs ${settings?.llm_mode === 'mock' ? 'bg-purple-900 text-purple-300' : 'bg-green-900 text-green-300'}`}>
+            <span
+              className={`badge hidden sm:inline-flex text-xs ${
+                settings?.llm_mode === 'mock'
+                  ? 'bg-purple-500/10 text-purple-300'
+                  : 'bg-emerald-500/10 text-emerald-400'
+              }`}
+              style={{
+                border: `1px solid ${settings?.llm_mode === 'mock' ? 'rgba(168,85,247,0.2)' : 'rgba(52,211,153,0.2)'}`,
+              }}
+            >
               {(settings?.llm_mode ?? 'api').toUpperCase()}
             </span>
 
             {/* Account button */}
             <button
               onClick={() => setShowAccount(true)}
-              className="w-8 h-8 rounded-full bg-blue-700 hover:bg-blue-600 flex items-center justify-center text-white text-sm font-bold transition-colors"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold transition-all hover:scale-105"
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                boxShadow: '0 0 12px rgba(59,130,246,0.4)',
+              }}
               title={user?.email ?? 'Account'}
             >
               {initial}
@@ -78,17 +120,25 @@ export default function Layout({ children, config }: Props) {
 
             {/* Mobile menu button */}
             <button
-              className="lg:hidden text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+              className="lg:hidden text-gray-400 hover:text-white p-1.5 rounded-lg transition-colors"
+              style={{ background: mobileMenuOpen ? 'rgba(255,255,255,0.08)' : undefined }}
               onClick={() => setMobileMenuOpen(s => !s)}
             >
-              {mobileMenuOpen ? '✕' : '☰'}
+              <span className="text-lg leading-none">{mobileMenuOpen ? '✕' : '☰'}</span>
             </button>
           </div>
         </div>
 
         {/* Mobile Nav Dropdown */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-gray-800 bg-gray-900 px-4 py-3 grid grid-cols-3 gap-2">
+          <div
+            className="lg:hidden border-t px-4 py-3 grid grid-cols-3 gap-2"
+            style={{
+              background: 'rgba(6,12,24,0.97)',
+              borderColor: 'rgba(255,255,255,0.07)',
+              backdropFilter: 'blur(24px)',
+            }}
+          >
             {NAV_ITEMS.map(item => (
               <NavLink
                 key={item.path}
@@ -96,12 +146,16 @@ export default function Layout({ children, config }: Props) {
                 end={item.path === '/'}
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
-                  `flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-xs font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                  `flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-xs font-medium transition-all ${
+                    isActive ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'
                   }`
                 }
+                style={({ isActive }) => isActive ? {
+                  background: 'rgba(59,130,246,0.1)',
+                  border: '1px solid rgba(59,130,246,0.2)',
+                } : {
+                  border: '1px solid transparent',
+                }}
               >
                 <span className="text-xl">{item.icon}</span>
                 <span>{item.label}</span>
@@ -112,7 +166,15 @@ export default function Layout({ children, config }: Props) {
       </header>
 
       {/* Bottom Nav for Mobile */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 z-20">
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 border-t z-20"
+        style={{
+          background: 'rgba(6,12,24,0.95)',
+          borderColor: 'rgba(255,255,255,0.07)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+        }}
+      >
         <div className="grid grid-cols-6 h-14">
           {NAV_ITEMS.map(item => (
             <NavLink
@@ -138,7 +200,10 @@ export default function Layout({ children, config }: Props) {
       </main>
 
       {/* Footer - desktop only */}
-      <footer className="hidden lg:block border-t border-gray-800 py-4 text-center text-xs text-gray-600">
+      <footer
+        className="hidden lg:block py-4 text-center text-xs text-gray-600 border-t"
+        style={{ borderColor: 'rgba(255,255,255,0.05)' }}
+      >
         MechStudy — Engineering Study Platform · Built with Groq AI
       </footer>
 
