@@ -396,6 +396,36 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ cards }) }
     }
 
+    // ── Problem Generator / Exam ──
+    if (body.type === 'generate_problem') {
+      if (!body.prompt) throw new Error('No prompt provided for problem generation')
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert mechanical engineering professor. Generate realistic, numerically-specific engineering problems suitable for undergraduate exams. Use SI units unless otherwise specified. Problems should be solvable with standard engineering methods.',
+            },
+            { role: 'user', content: body.prompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(`Groq API error: ${data.error?.message ?? JSON.stringify(data)}`)
+      }
+      const problem = data.choices?.[0]?.message?.content ?? ''
+      return { statusCode: 200, headers, body: JSON.stringify({ problem }) }
+    }
+
     // ── Problem Analysis ──
     const { prompt } = body
     let lastError: Error | null = null
